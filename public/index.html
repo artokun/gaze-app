@@ -873,16 +873,16 @@
           // Create a File object from the blob
           const file = new File([blob], "webcam-capture.jpg", { type: "image/jpeg" });
 
-          // Show preview
+          // Show preview and start upload
           const reader = new FileReader();
           reader.onload = (e) => {
             previewImage.src = e.target.result;
             previewImage.style.display = "block";
-            uploadBtn.textContent = "Generate Gaze";
-            uploadBtn.onclick = () => processFile(file);
-            cancelBtn.style.display = "inline-block";
           };
           reader.readAsDataURL(file);
+
+          // Start the upload process
+          uploadFile(file);
         }, "image/jpeg", 0.92);
       }
 
