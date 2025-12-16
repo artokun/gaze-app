@@ -98,6 +98,49 @@ gpu stop --force
 
 The app uses HTTP download as a fallback when daemon sync fails. Check the generation log in the UI for details.
 
+## Deployment (Fly.io)
+
+### 1. Create the app
+
+```bash
+fly apps create gaze-app
+```
+
+### 2. Create a volume for persistent storage
+
+```bash
+fly volumes create gaze_data --size 10 --region sjc
+```
+
+### 3. Set your RunPod API key
+
+Get your API key from https://runpod.io/console/user/settings
+
+```bash
+fly secrets set RUNPOD_API_KEY=rpa_your_key_here
+```
+
+### 4. Deploy
+
+```bash
+fly deploy
+```
+
+The app will:
+- Install gpu-cli in the container
+- Generate SSH keys and configure credentials from `RUNPOD_API_KEY`
+- Start the gpu daemon
+- Run the Node.js server
+
+### Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `RUNPOD_API_KEY` | Yes | Your RunPod API key (starts with `rpa_`) |
+| `PORT` | No | Server port (default: 3000) |
+| `GPU_SSH_PRIVATE_KEY` | No | Pre-generated SSH private key |
+| `GPU_SSH_PUBLIC_KEY` | No | Pre-generated SSH public key |
+
 ## Tech Stack
 
 - **Frontend**: Vanilla JS, PixiJS, Socket.IO
