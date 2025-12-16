@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaze Tracker v2 - High Fidelity</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            overflow-x: hidden;
+            width: 100%;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            color: #fff;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 15px;
+            width: 100%;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px 0;
+        }
+
+        h1 {
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            margin-bottom: 10px;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .subtitle {
+            color: #8892b0;
+            font-size: 1.1rem;
+        }
+
+        .version-badge {
+            display: inline-block;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            color: #1a1a2e;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .upload-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 20px;
+            text-align: center;
+            border: 2px dashed rgba(255, 255, 255, 0.2);
+            transition: all 0.3s ease;
+            margin-bottom: 20px;
+        }
+
+        .upload-section:hover {
+            border-color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.05);
+        }
+
+        .upload-section.dragover {
+            border-color: #ffd93d;
+            background: rgba(255, 217, 61, 0.1);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        .upload-text {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+        }
+
+        .upload-hint {
+            color: #8892b0;
+            font-size: 0.9rem;
+        }
+
+        .feature-note {
+            background: rgba(255, 217, 61, 0.1);
+            border: 1px solid rgba(255, 217, 61, 0.3);
+            border-radius: 10px;
+            padding: 15px;
+            margin: 20px 0;
+            font-size: 0.9rem;
+            color: #ffd93d;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-top: 20px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+        }
+
+        .cancel-btn {
+            background: #dc3545;
+            margin-left: 10px;
+        }
+
+        .cancel-btn:hover {
+            box-shadow: 0 10px 30px rgba(220, 53, 69, 0.3);
+        }
+
+        .progress-section {
+            display: none;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 40px;
+            margin-bottom: 30px;
+        }
+
+        .progress-bar-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            margin: 20px 0;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 10px;
+        }
+
+        .progress-text {
+            text-align: center;
+            color: #8892b0;
+        }
+
+        .status-message {
+            text-align: center;
+            font-size: 1.1rem;
+            margin-bottom: 10px;
+        }
+
+        .viewer-section {
+            display: none;
+        }
+
+        #pixi-container {
+            width: 100%;
+            height: 80vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 20px;
+            overflow: hidden;
+        }
+
+        .viewer-info {
+            text-align: center;
+            padding: 20px;
+            color: #8892b0;
+        }
+
+        .stats {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+
+        .new-upload-btn {
+            display: inline-block;
+            background: transparent;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            padding: 12px 30px;
+            font-size: 1rem;
+            color: #fff;
+            border-radius: 30px;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            margin-top: 15px;
+        }
+
+        .new-upload-btn:hover {
+            border-color: #ff6b6b;
+            color: #ff6b6b;
+        }
+
+
+        .error-message {
+            background: rgba(255, 0, 0, 0.2);
+            border: 1px solid #ff4444;
+            border-radius: 10px;
+            padding: 20px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .history-section {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 20px;
+            padding: 25px;
+            margin-bottom: 30px;
+        }
+
+        .history-section h3 {
+            margin-bottom: 15px;
+            font-size: 1.2rem;
+            color: #ffd93d;
+        }
+
+        .history-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 15px;
+        }
+
+        .history-item {
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            background: rgba(0, 0, 0, 0.3);
+            aspect-ratio: 4/5;
+        }
+
+        .history-item:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(255, 107, 107, 0.3);
+        }
+
+        .history-item img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+
+        .history-item .delete-btn {
+            position: absolute;
+            top: 5px;
+            right: 5px;
+            background: rgba(220, 53, 69, 0.9);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: white;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .history-item:hover .delete-btn {
+            opacity: 1;
+        }
+
+        .share-section {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            justify-content: center;
+            margin-top: 15px;
+            flex-wrap: wrap;
+            padding: 0 10px;
+        }
+
+        .share-url {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #fff;
+            font-family: monospace;
+            font-size: 0.75rem;
+            max-width: calc(100vw - 150px);
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .copy-btn {
+            background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+            border: none;
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .copy-btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .queue-message {
+            background: rgba(255, 217, 61, 0.15);
+            border: 1px solid rgba(255, 217, 61, 0.4);
+            border-radius: 10px;
+            padding: 15px 20px;
+            text-align: center;
+            color: #ffd93d;
+            margin-bottom: 15px;
+        }
+
+        .overloaded-message {
+            background: rgba(220, 53, 69, 0.2);
+            border: 1px solid rgba(220, 53, 69, 0.5);
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            color: #ff6b6b;
+        }
+
+        .preview-image {
+            max-width: 200px;
+            max-height: 200px;
+            border-radius: 10px;
+            margin: 20px auto;
+            display: none;
+        }
+
+        .loading-images {
+            text-align: center;
+            padding: 40px;
+        }
+
+        .loading-images .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-top-color: #ff6b6b;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Gaze Tracker <span class="version-badge">v2</span></h1>
+            <p class="subtitle">4 quadrant sprites (900 frames) with smooth tracking</p>
+        </header>
+
+        <div class="upload-section" id="uploadSection">
+            <div class="upload-icon">📸</div>
+            <p class="upload-text">Drag & drop a portrait image here</p>
+            <p class="upload-hint">or click to browse (JPG, PNG - max 10MB)</p>
+            <input type="file" id="fileInput" accept="image/jpeg,image/png,image/webp">
+            <img class="preview-image" id="previewImage">
+            <div class="feature-note">
+                30x30 grid (900 frames) with smooth interpolation
+            </div>
+            <button class="btn" id="uploadBtn">Select Image</button>
+            <button class="btn cancel-btn" id="cancelBtn" style="display: none;">Cancel</button>
+        </div>
+
+        <div class="history-section" id="historySection" style="display: none;">
+            <h3>Your Previous Gazes</h3>
+            <div class="history-grid" id="historyGrid"></div>
+        </div>
+
+        <div class="progress-section" id="progressSection">
+            <div class="queue-message" id="queueMessage" style="display: none;"></div>
+            <p class="status-message" id="statusMessage">Uploading...</p>
+            <div class="progress-bar-container">
+                <div class="progress-bar" id="progressBar"></div>
+            </div>
+            <p class="progress-text" id="progressText">0%</p>
+        </div>
+
+        <div class="error-message" id="errorMessage"></div>
+
+        <div class="viewer-section" id="viewerSection">
+            <div id="pixi-container">
+                <gaze-tracker id="gazeWidget" style="width: 100%; height: 100%;"></gaze-tracker>
+            </div>
+            <div class="viewer-info">
+                <p>Move your mouse to control the gaze direction (with smooth interpolation)</p>
+                <div class="share-section" id="shareSection">
+                    <span class="share-url" id="shareUrl"></span>
+                    <button class="copy-btn" id="copyBtn">Copy Link</button>
+                </div>
+                <button class="new-upload-btn" id="newUploadBtn">Upload New Image</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="/widget/gaze-tracker.js"></script>
+    <script>
+        // Remote logger - sends errors to server
+        const remoteLog = (level, message, error) => {
+            const data = {
+                level,
+                message: String(message),
+                stack: error?.stack || null,
+                userAgent: navigator.userAgent
+            };
+            fetch('/api/log', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            }).catch(() => {});
+        };
+
+        // Capture all errors
+        window.onerror = (msg, src, line, col, error) => {
+            remoteLog('error', `${msg} at ${src}:${line}:${col}`, error);
+            return false;
+        };
+
+        window.onunhandledrejection = (e) => {
+            remoteLog('error', `Unhandled rejection: ${e.reason}`, e.reason);
+        };
+
+        // Override console.error to also send to server
+        const origConsoleError = console.error;
+        console.error = (...args) => {
+            origConsoleError.apply(console, args);
+            remoteLog('error', args.map(a => String(a)).join(' '));
+        };
+
+        remoteLog('info', 'Page loaded');
+    </script>
+    <script>
+        const socket = io();
+
+        // DOM elements
+        const uploadSection = document.getElementById('uploadSection');
+        const progressSection = document.getElementById('progressSection');
+        const viewerSection = document.getElementById('viewerSection');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const cancelBtn = document.getElementById('cancelBtn');
+        const previewImage = document.getElementById('previewImage');
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        const statusMessage = document.getElementById('statusMessage');
+        const errorMessage = document.getElementById('errorMessage');
+        const pixiContainer = document.getElementById('pixi-container');
+        const newUploadBtn = document.getElementById('newUploadBtn');
+        const historySection = document.getElementById('historySection');
+        const historyGrid = document.getElementById('historyGrid');
+        const queueMessage = document.getElementById('queueMessage');
+        const shareSection = document.getElementById('shareSection');
+        const shareUrl = document.getElementById('shareUrl');
+        const copyBtn = document.getElementById('copyBtn');
+
+        // State
+        let currentSessionId = null;
+        let isSharedSession = false; // True if viewing someone else's shared session
+
+        // Session state
+        let gridSize = 30;
+        let imageWidth = 0;
+        let imageHeight = 0;
+
+
+        // LocalStorage history functions
+        function getHistory() {
+            try {
+                return JSON.parse(localStorage.getItem('gazeHistory') || '[]');
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function saveToHistory(sessionId, thumbnailUrl) {
+            const history = getHistory();
+            // Remove if already exists (to move to front)
+            const filtered = history.filter(h => h.sessionId !== sessionId);
+            // Add to beginning
+            filtered.unshift({ sessionId, thumbnailUrl, timestamp: Date.now() });
+            // Keep only last 20
+            const trimmed = filtered.slice(0, 20);
+            localStorage.setItem('gazeHistory', JSON.stringify(trimmed));
+        }
+
+        function removeFromHistory(sessionId) {
+            const history = getHistory().filter(h => h.sessionId !== sessionId);
+            localStorage.setItem('gazeHistory', JSON.stringify(history));
+            renderHistory();
+        }
+
+        function renderHistory() {
+            const history = getHistory();
+            if (history.length === 0) {
+                historySection.style.display = 'none';
+                return;
+            }
+
+            historySection.style.display = 'block';
+            historyGrid.innerHTML = '';
+
+            history.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'history-item';
+                div.innerHTML = `
+                    <img src="${item.thumbnailUrl}" alt="Gaze ${item.sessionId}">
+                    <button class="delete-btn" data-session="${item.sessionId}">X</button>
+                `;
+                div.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('delete-btn')) {
+                        e.stopPropagation();
+                        removeFromHistory(e.target.dataset.session);
+                    } else {
+                        // Navigate to session
+                        window.location.href = '/' + item.sessionId;
+                    }
+                });
+                historyGrid.appendChild(div);
+            });
+        }
+
+        // Check if we're loading a shared session from URL
+        async function checkUrlSession() {
+            const path = window.location.pathname;
+            if (path.length > 1) {
+                const sessionId = path.substring(1);
+                if (sessionId.startsWith('session_')) {
+                    // Try to load this session
+                    try {
+                        const response = await fetch(`/api/session/${sessionId}`);
+                        if (response.ok) {
+                            const data = await response.json();
+                            // Check if this is in our own history
+                            const history = getHistory();
+                            isSharedSession = !history.some(h => h.sessionId === sessionId);
+                            currentSessionId = sessionId;
+
+                            // Hide upload section, show viewer
+                            uploadSection.style.display = 'none';
+                            historySection.style.display = 'none';
+                            viewerSection.style.display = 'block';
+
+                            gridSize = data.gridSize;
+                            imageWidth = data.imageWidth;
+                            imageHeight = data.imageHeight;
+
+                            initPixiViewer(data.basePath, data.gridSize, data.quadrantSize || 15);
+                            return true;
+                        }
+                    } catch (e) {
+                        console.error('Failed to load session:', e);
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Copy share URL
+        copyBtn.addEventListener('click', () => {
+            const url = shareUrl.textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                copyBtn.textContent = 'Copied!';
+                setTimeout(() => {
+                    copyBtn.textContent = 'Copy Link';
+                }, 2000);
+            });
+        });
+
+        // Initialize
+        (async function init() {
+            // Check if loading from URL first
+            const loadedFromUrl = await checkUrlSession();
+            if (!loadedFromUrl) {
+                // Show history if available
+                renderHistory();
+            }
+        })();
+
+        // File upload handling
+        uploadBtn.addEventListener('click', () => fileInput.click());
+
+        cancelBtn.addEventListener('click', () => {
+            window.location.href = '/';
+        });
+
+        newUploadBtn.addEventListener('click', () => {
+            window.location.href = '/';
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        // Drag and drop
+        uploadSection.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadSection.classList.add('dragover');
+        });
+
+        uploadSection.addEventListener('dragleave', () => {
+            uploadSection.classList.remove('dragover');
+        });
+
+        uploadSection.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadSection.classList.remove('dragover');
+            if (e.dataTransfer.files.length > 0) {
+                handleFile(e.dataTransfer.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            if (!file.type.match(/image\/(jpeg|png|webp)/)) {
+                showError('Please upload a JPG, PNG, or WebP image');
+                return;
+            }
+
+            if (file.size > 10 * 1024 * 1024) {
+                showError('File size must be less than 10MB');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                previewImage.src = e.target.result;
+                previewImage.style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            uploadFile(file);
+        }
+
+        function uploadFile(file) {
+            progressSection.style.display = 'block';
+            errorMessage.style.display = 'none';
+            statusMessage.textContent = 'Uploading image...';
+            progressBar.style.width = '0%';
+            progressText.textContent = '0%';
+            queueMessage.style.display = 'none';
+
+            uploadBtn.style.display = 'none';
+            cancelBtn.style.display = 'inline-block';
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const arrayBuffer = e.target.result;
+                socket.emit('upload', arrayBuffer, file.name, false, (response) => {
+                    if (response.success) {
+                        currentSessionId = response.sessionId;
+                        statusMessage.textContent = 'Processing...';
+                        progressBar.style.width = '5%';
+                        progressText.textContent = '5%';
+                    } else if (response.overloaded) {
+                        showError(`Server overloaded! ${response.queueLength} people in queue. Please try again later.`);
+                    } else {
+                        showError(response.error || 'Upload failed');
+                    }
+                });
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Socket.IO event handlers
+        socket.on('status', (data) => {
+            statusMessage.textContent = data.message;
+        });
+
+        socket.on('queue', (data) => {
+            queueMessage.style.display = 'block';
+            queueMessage.textContent = data.message;
+        });
+
+        socket.on('progress', (data) => {
+            // Hide queue message when processing starts
+            queueMessage.style.display = 'none';
+
+            let progress;
+            if (data.stage === 'saving') {
+                progress = Math.min(95, 80 + data.progress * 0.15);
+            } else {
+                progress = Math.min(80, 5 + data.progress * 0.75);
+            }
+            progressBar.style.width = `${progress}%`;
+            progressText.textContent = `${Math.round(progress)}%`;
+            statusMessage.textContent = data.message;
+        });
+
+        socket.on('complete', async (data) => {
+            progressBar.style.width = '100%';
+            progressText.textContent = '100%';
+            statusMessage.textContent = 'Loading viewer...';
+
+            gridSize = data.gridSize;
+            imageWidth = data.imageWidth;
+            imageHeight = data.imageHeight;
+            currentSessionId = data.sessionId;
+
+            // Save to history with q3 sprite (bottom-right contains center area)
+            const thumbnailUrl = `${data.basePath}/q3.webp`;
+            saveToHistory(data.sessionId, thumbnailUrl);
+
+            // Update URL without reloading
+            window.history.pushState({}, '', '/' + data.sessionId);
+
+            setTimeout(() => {
+                uploadSection.style.display = 'none';
+                progressSection.style.display = 'none';
+                historySection.style.display = 'none';
+                viewerSection.style.display = 'block';
+                initPixiViewer(data.basePath, data.gridSize, data.quadrantSize || 15);
+            }, 500);
+        });
+
+        socket.on('error', (data) => {
+            showError(data.message);
+        });
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            progressSection.style.display = 'none';
+            uploadBtn.style.display = 'inline-block';
+            cancelBtn.style.display = 'none';
+        }
+
+        // Reference to the gaze widget
+        const gazeWidget = document.getElementById('gazeWidget');
+
+        function initPixiViewer(basePath, size, qSize = 15) {
+            gridSize = size;
+
+            // Set share URL
+            if (currentSessionId) {
+                const fullUrl = window.location.origin + '/' + currentSessionId;
+                shareUrl.textContent = fullUrl;
+                shareSection.style.display = 'flex';
+            }
+
+            // Configure the gaze-tracker widget
+            const quadrantUrls = [
+                `${basePath}/q0.webp`,
+                `${basePath}/q1.webp`,
+                `${basePath}/q2.webp`,
+                `${basePath}/q3.webp`
+            ].join(',');
+
+            gazeWidget.setAttribute('src', quadrantUrls);
+            gazeWidget.setAttribute('mode', 'quadrants');
+            gazeWidget.setAttribute('grid', size.toString());
+            gazeWidget.setAttribute('width', imageWidth.toString());
+            gazeWidget.setAttribute('height', imageHeight.toString());
+        }
+    </script>
+</body>
+</html>

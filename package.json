@@ -1,0 +1,15 @@
+{
+  "name": "gaze-app",
+  "version": "1.0.0",
+  "description": "Gaze tracking face animation app with PixiJS",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "socket.io": "^4.7.5",
+    "multer": "^1.4.5-lts.1",
+    "sharp": "^0.33.5"
+  }
+}

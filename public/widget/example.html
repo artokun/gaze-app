@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaze Tracker Widget Example</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .demo-section {
+            padding: 40px 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 10px;
+            font-size: 2rem;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #8892b0;
+            margin-bottom: 40px;
+        }
+
+        .examples {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+        }
+
+        .example-card {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 16px;
+            overflow: hidden;
+        }
+
+        .example-card h3 {
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.05);
+            font-size: 1rem;
+            font-weight: 500;
+        }
+
+        .example-content {
+            padding: 20px;
+        }
+
+        /* Example 1: Fixed size */
+        .fixed-container {
+            width: 100%;
+            height: 400px;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* Example 2: Aspect ratio container */
+        .aspect-container {
+            width: 100%;
+            aspect-ratio: 3/4;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+        }
+
+        /* Example 3: Circle mask */
+        .circle-container {
+            width: 250px;
+            height: 250px;
+            border-radius: 50%;
+            overflow: hidden;
+            margin: 0 auto;
+            background: #000;
+        }
+
+        .code-block {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-family: 'Monaco', 'Consolas', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            color: #8892b0;
+        }
+
+        .code-block code {
+            color: #64ffda;
+        }
+
+        /* Full page demo link */
+        .fullpage-link {
+            display: block;
+            text-align: center;
+            padding: 20px;
+            background: linear-gradient(90deg, #00d9ff, #00ff88);
+            color: #1a1a2e;
+            text-decoration: none;
+            font-weight: 600;
+            border-radius: 12px;
+            margin-top: 40px;
+            transition: transform 0.2s;
+        }
+
+        .fullpage-link:hover {
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-section">
+        <h1>Gaze Tracker Widget</h1>
+        <p class="subtitle">Move your mouse around to see the face follow your cursor</p>
+
+        <div class="examples">
+            <!-- Example 1: Fixed Height -->
+            <div class="example-card">
+                <h3>Fixed Height Container</h3>
+                <div class="example-content">
+                    <div class="fixed-container">
+                        <gaze-tracker
+                            src="sprite.jpg"
+                            grid="30"
+                            width="512"
+                            height="640">
+                        </gaze-tracker>
+                    </div>
+                    <div class="code-block">
+                        <code>&lt;div style="height: 400px;"&gt;</code><br>
+                        <code>&nbsp;&nbsp;&lt;gaze-tracker src="sprite.jpg"&gt;&lt;/gaze-tracker&gt;</code><br>
+                        <code>&lt;/div&gt;</code>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example 2: Aspect Ratio -->
+            <div class="example-card">
+                <h3>Aspect Ratio Container</h3>
+                <div class="example-content">
+                    <div class="aspect-container">
+                        <gaze-tracker
+                            src="sprite.jpg"
+                            grid="30"
+                            width="512"
+                            height="640">
+                        </gaze-tracker>
+                    </div>
+                    <div class="code-block">
+                        <code>&lt;div style="aspect-ratio: 3/4;"&gt;</code><br>
+                        <code>&nbsp;&nbsp;&lt;gaze-tracker src="sprite.jpg"&gt;&lt;/gaze-tracker&gt;</code><br>
+                        <code>&lt;/div&gt;</code>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Example 3: Circle Mask -->
+            <div class="example-card">
+                <h3>Circle Mask</h3>
+                <div class="example-content">
+                    <div class="circle-container">
+                        <gaze-tracker
+                            src="sprite.jpg"
+                            grid="30"
+                            width="512"
+                            height="640">
+                        </gaze-tracker>
+                    </div>
+                    <div class="code-block">
+                        <code>&lt;div style="width: 250px; height: 250px; border-radius: 50%;"&gt;</code><br>
+                        <code>&nbsp;&nbsp;&lt;gaze-tracker src="sprite.jpg"&gt;&lt;/gaze-tracker&gt;</code><br>
+                        <code>&lt;/div&gt;</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <a href="fullpage.html" class="fullpage-link">
+            View Full Page Background Demo
+        </a>
+    </div>
+
+    <!-- Load the widget -->
+    <script src="gaze-tracker.js"></script>
+</body>
+</html>
