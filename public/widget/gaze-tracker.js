@@ -6,10 +6,11 @@
  *   <gaze-tracker
  *     src="q0.webp,q1.webp,q2.webp,q3.webp"
  *     mode="quadrants"
- *     grid="30"
- *     width="512"
- *     height="640">
+ *     grid="30">
  *   </gaze-tracker>
+ *
+ * With explicit dimensions (optional - auto-detected from sprite if omitted):
+ *   <gaze-tracker src="q0.webp,q1.webp,q2.webp,q3.webp" grid="30" width="512" height="640"></gaze-tracker>
  *
  * Usage (single sprite, legacy):
  *   <gaze-tracker src="sprite.jpg" grid="30" width="512" height="640"></gaze-tracker>
@@ -366,6 +367,25 @@ class GazeTracker extends HTMLElement {
             q2: loaded[urls[2]],
             q3: loaded[urls[3]]
         };
+
+        // Auto-detect frame dimensions from first quadrant if not explicitly set
+        const firstTexture = this.quadrantTextures.q0;
+        if (firstTexture && (!this.getAttribute('width') || !this.getAttribute('height'))) {
+            // Each quadrant is half the grid, so frame size = texture size / quadrantSize
+            const detectedWidth = Math.round(firstTexture.width / this.quadrantSize);
+            const detectedHeight = Math.round(firstTexture.height / this.quadrantSize);
+
+            if (!this.getAttribute('width')) {
+                this.imageWidth = detectedWidth;
+            }
+            if (!this.getAttribute('height')) {
+                this.imageHeight = detectedHeight;
+            }
+
+            // Resize the PIXI app to match detected dimensions
+            this.app.renderer.resize(this.imageWidth, this.imageHeight);
+            widgetLog('info', `Auto-detected frame size: ${this.imageWidth}x${this.imageHeight}`);
+        }
     }
 
     updateSpriteScale() {
