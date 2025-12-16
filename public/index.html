@@ -770,6 +770,27 @@
             });
         }
 
+        // Show demo mode
+        function showDemo() {
+            uploadSection.style.display = 'none';
+            historySection.style.display = 'none';
+            viewerSection.style.display = 'block';
+
+            // Demo metadata (from actual generated content)
+            gridSize = 30;
+            imageWidth = 410;
+            imageHeight = 512;
+            currentSessionId = null;
+
+            // Hide share section for demo
+            shareSection.style.display = 'none';
+
+            // Change button text for demo
+            newUploadBtn.textContent = 'Make Your Own';
+
+            initPixiViewer('/demo', 30, 15);
+        }
+
         // Check if we're loading a shared session from URL
         async function checkUrlSession() {
             const path = window.location.pathname;
@@ -822,8 +843,8 @@
             // Check if loading from URL first
             const loadedFromUrl = await checkUrlSession();
             if (!loadedFromUrl) {
-                // Show history if available
-                renderHistory();
+                // Show demo by default so visitors see the end result
+                showDemo();
             }
         })();
 
@@ -835,7 +856,13 @@
         });
 
         newUploadBtn.addEventListener('click', () => {
-            window.location.href = '/';
+            // Show upload form (and history if available)
+            viewerSection.style.display = 'none';
+            uploadSection.style.display = 'block';
+            renderHistory();
+            newUploadBtn.textContent = 'Upload New Image';
+            // Reset URL to root without reloading
+            window.history.pushState({}, '', '/');
         });
 
         fileInput.addEventListener('change', (e) => {

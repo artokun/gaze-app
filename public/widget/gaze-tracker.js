@@ -122,6 +122,14 @@ class GazeTracker extends HTMLElement {
                     align-items: center;
                     background: transparent;
                     overflow: hidden;
+                    position: relative;
+                }
+
+                .gaze-container canvas {
+                    position: absolute;
+                    top: 50%;
+                    left: 50%;
+                    transform: translate(-50%, -50%);
                 }
 
                 canvas {
@@ -315,6 +323,9 @@ class GazeTracker extends HTMLElement {
             this.sprite.anchor.set(0, 0);
             this.app.stage.addChild(this.sprite);
 
+            // Scale sprite to fill canvas initially
+            this.updateSpriteScale();
+
             const centerFrame = Math.floor(this.gridSize / 2);
             this.updateFrame(centerFrame, centerFrame);
 
@@ -355,6 +366,25 @@ class GazeTracker extends HTMLElement {
             q2: loaded[urls[2]],
             q3: loaded[urls[3]]
         };
+    }
+
+    updateSpriteScale() {
+        if (!this.sprite || !this.app) return;
+
+        const canvasWidth = this.app.renderer.width;
+        const canvasHeight = this.app.renderer.height;
+
+        // Calculate scale to fit image inside canvas while maintaining aspect ratio
+        const scaleX = canvasWidth / this.imageWidth;
+        const scaleY = canvasHeight / this.imageHeight;
+        const scale = Math.min(scaleX, scaleY);
+
+        // Apply scale
+        this.sprite.scale.set(scale, scale);
+
+        // Center the sprite in the canvas
+        this.sprite.x = (canvasWidth - this.imageWidth * scale) / 2;
+        this.sprite.y = (canvasHeight - this.imageHeight * scale) / 2;
     }
 
     getTextureForCell(row, col) {
@@ -587,24 +617,19 @@ class GazeTracker extends HTMLElement {
 
                     if (width === 0 || height === 0) return;
 
-                    // Calculate size to fit container while maintaining aspect ratio
-                    const imageRatio = this.imageWidth / this.imageHeight;
-                    const containerRatio = width / height;
+                    // Make canvas fill the entire container
+                    const canvasWidth = width;
+                    const canvasHeight = height;
 
-                    let canvasWidth, canvasHeight;
-                    if (imageRatio > containerRatio) {
-                        // Image is wider - fit to width
-                        canvasWidth = width;
-                        canvasHeight = width / imageRatio;
-                    } else {
-                        // Image is taller - fit to height
-                        canvasHeight = height;
-                        canvasWidth = height * imageRatio;
-                    }
+                    // Update PixiJS renderer size to match container
+                    this.app.renderer.resize(Math.floor(canvasWidth), Math.floor(canvasHeight));
 
-                    // Update canvas display size (CSS)
-                    this.app.canvas.style.width = Math.floor(canvasWidth) + 'px';
-                    this.app.canvas.style.height = Math.floor(canvasHeight) + 'px';
+                    // Update canvas display size (CSS) - let it fill container
+                    this.app.canvas.style.width = '100%';
+                    this.app.canvas.style.height = '100%';
+
+                    // Scale sprite to fill the entire canvas
+                    this.updateSpriteScale();
                 } catch (e) {
                     console.error('ResizeObserver callback error:', e);
                 }
