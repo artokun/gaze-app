@@ -326,7 +326,17 @@ async function startGpuServer() {
 
         gpuServerProcess.stderr.on('data', (data) => {
             const output = data.toString();
-            console.error('[GPU stderr]', output.trim());
+
+            // Filter out noisy warnings that aren't actual errors
+            const isNoise = output.includes('Unknown RunPod GPU') ||
+                           output.includes('not found in database') ||
+                           output.includes('WARN') ||
+                           output.includes('forward_connection') ||
+                           output.includes('output supervisor lookup failed');
+
+            if (!isNoise) {
+                console.error('[GPU stderr]', output.trim());
+            }
 
             // Parse for status updates (gpu-cli outputs to stderr too)
             parseGpuOutput(output);
