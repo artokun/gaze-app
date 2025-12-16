@@ -216,7 +216,7 @@ class GazeGridGeneratorWeb:
         return out_images
 
     def generate_grid(self, input_image_path, output_dir, sprite_output, grid_size=30, batch_size=8, progress_callback=None):
-        """Generate grid of individual high-res WebP images (v2 - no sprite sheet)"""
+        """Generate grid of images and create both 30x30 and 20x20 sprite sheets"""
         os.makedirs(output_dir, exist_ok=True)
         total_images = grid_size * grid_size
 
@@ -283,9 +283,6 @@ class GazeGridGeneratorWeb:
 
             generated_images = processed_images
 
-        # Create 4 quadrant sprite sheets (v2 - faster loading than 900 individual files)
-        report_progress("saving", 0, 4, "Creating quadrant sprite sheets...")
-
         first_img = generated_images[0][2]
         img_h, img_w = first_img.shape[:2]
         has_alpha = first_img.shape[2] == 4 if len(first_img.shape) > 2 else False
@@ -297,54 +294,133 @@ class GazeGridGeneratorWeb:
             row = values.index(y_val)
             image_grid[(row, col)] = img
 
-        # Split into 4 quadrants (15x15 each for 30x30 grid)
-        half = grid_size // 2  # 15
-        quadrants = [
-            ('q0', 0, 0),           # top-left: rows 0-14, cols 0-14
-            ('q1', 0, half),        # top-right: rows 0-14, cols 15-29
-            ('q2', half, 0),        # bottom-left: rows 15-29, cols 0-14
-            ('q3', half, half),     # bottom-right: rows 15-29, cols 15-29
-        ]
+        # Create sprite sheets using FFmpeg for better performance
+        import tempfile
+        import subprocess
+        import shutil
 
-        for q_idx, (q_name, row_start, col_start) in enumerate(quadrants):
-            # Create sprite for this quadrant
-            sprite_w = img_w * half
-            sprite_h = img_h * half
+        report_progress("saving", 0, 8, "Creating sprite sheets with FFmpeg (30x30 and 20x20)...")
 
-            if has_alpha:
-                sprite = np.zeros((sprite_h, sprite_w, 4), dtype=np.uint8)
-            else:
-                sprite = np.zeros((sprite_h, sprite_w, 3), dtype=np.uint8)
+        # Create temp directory for individual frames
+        temp_base = tempfile.mkdtemp(prefix="gaze_frames_")
 
-            # Fill in the quadrant sprite
-            for local_row in range(half):
-                for local_col in range(half):
-                    global_row = row_start + local_row
-                    global_col = col_start + local_col
+        try:
+            # Helper function to create quadrant sprites using FFmpeg
+            def create_quadrant_ffmpeg(target_grid_size, suffix="", progress_offset=0):
+                half = target_grid_size // 2
 
-                    if (global_row, global_col) in image_grid:
-                        img = image_grid[(global_row, global_col)]
-                        y_pos = local_row * img_h
-                        x_pos = local_col * img_w
-                        sprite[y_pos:y_pos+img_h, x_pos:x_pos+img_w] = img
+                # Map from target grid indices to source (30x30) indices
+                if target_grid_size == grid_size:
+                    index_map = list(range(grid_size))
+                else:
+                    # Subsample: pick evenly spaced indices
+                    index_map = [round(i * (grid_size - 1) / (target_grid_size - 1)) for i in range(target_grid_size)]
 
-            # Save quadrant sprite as WebP
-            sprite_path = os.path.join(output_dir, f'{q_name}.webp')
-            if has_alpha:
-                pil_sprite = Image.fromarray(sprite, 'RGBA')
-            else:
-                pil_sprite = Image.fromarray(sprite, 'RGB')
+                quadrants = [
+                    ('q0', 0, 0),           # top-left
+                    ('q1', 0, half),        # top-right
+                    ('q2', half, 0),        # bottom-left
+                    ('q3', half, half),     # bottom-right
+                ]
 
-            pil_sprite.save(sprite_path, 'WEBP', quality=85)
+                for q_idx, (q_name, row_start, col_start) in enumerate(quadrants):
+                    # Create temp dir for this quadrant's frames
+                    q_temp = os.path.join(temp_base, f"{q_name}{suffix}")
+                    os.makedirs(q_temp, exist_ok=True)
 
-            save_progress = int((q_idx + 1) / 4 * 100)
-            print(f"PROGRESS_SAVE:{save_progress}", flush=True)
+                    # Save frames in row-major order (top-left to bottom-right)
+                    frame_num = 0
+                    for local_row in range(half):
+                        for local_col in range(half):
+                            target_row = row_start + local_row
+                            target_col = col_start + local_col
 
-        # Save metadata
+                            source_row = index_map[target_row]
+                            source_col = index_map[target_col]
+
+                            if (source_row, source_col) in image_grid:
+                                img = image_grid[(source_row, source_col)]
+                                frame_path = os.path.join(q_temp, f"frame_{frame_num:04d}.png")
+
+                                if has_alpha:
+                                    pil_img = Image.fromarray(img, 'RGBA')
+                                else:
+                                    pil_img = Image.fromarray(img, 'RGB')
+                                pil_img.save(frame_path, 'PNG')
+
+                            frame_num += 1
+
+                    # Use FFmpeg to create tiled sprite sheet
+                    output_path = os.path.join(output_dir, f'{q_name}{suffix}.webp')
+                    ffmpeg_cmd = [
+                        'ffmpeg', '-y',
+                        '-framerate', '1',  # Doesn't matter for tile, but required
+                        '-i', os.path.join(q_temp, 'frame_%04d.png'),
+                        '-vf', f'tile={half}x{half}',
+                        '-quality', '85',
+                        '-compression_level', '4',
+                        output_path
+                    ]
+
+                    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+                    if result.returncode != 0:
+                        print(f"FFmpeg warning for {q_name}{suffix}: {result.stderr}", flush=True)
+                        # Fallback to PIL if FFmpeg fails
+                        create_quadrant_pil(target_grid_size, suffix, q_idx, q_name, row_start, col_start, index_map, half)
+
+                    # Progress: 4 for 30x30 + 4 for 20x20 = 8 total
+                    current_progress = q_idx + 1 + progress_offset
+                    print(f"PROGRESS_SAVE:{int(current_progress / 8 * 100)}", flush=True)
+
+            # PIL fallback for when FFmpeg fails
+            def create_quadrant_pil(target_grid_size, suffix, q_idx, q_name, row_start, col_start, index_map, half):
+                sprite_w = img_w * half
+                sprite_h = img_h * half
+
+                if has_alpha:
+                    sprite = np.zeros((sprite_h, sprite_w, 4), dtype=np.uint8)
+                else:
+                    sprite = np.zeros((sprite_h, sprite_w, 3), dtype=np.uint8)
+
+                for local_row in range(half):
+                    for local_col in range(half):
+                        target_row = row_start + local_row
+                        target_col = col_start + local_col
+                        source_row = index_map[target_row]
+                        source_col = index_map[target_col]
+
+                        if (source_row, source_col) in image_grid:
+                            img = image_grid[(source_row, source_col)]
+                            y_pos = local_row * img_h
+                            x_pos = local_col * img_w
+                            sprite[y_pos:y_pos+img_h, x_pos:x_pos+img_w] = img
+
+                filename = f'{q_name}{suffix}.webp'
+                sprite_path = os.path.join(output_dir, filename)
+                if has_alpha:
+                    pil_sprite = Image.fromarray(sprite, 'RGBA')
+                else:
+                    pil_sprite = Image.fromarray(sprite, 'RGB')
+                pil_sprite.save(sprite_path, 'WEBP', quality=85)
+
+            # Create 30x30 quadrants (q0.webp, q1.webp, q2.webp, q3.webp)
+            create_quadrant_ffmpeg(grid_size, suffix="", progress_offset=0)
+
+            # Create 20x20 quadrants (q0_20.webp, q1_20.webp, q2_20.webp, q3_20.webp)
+            mobile_grid_size = 20
+            create_quadrant_ffmpeg(mobile_grid_size, suffix="_20", progress_offset=4)
+
+        finally:
+            # Clean up temp directory
+            shutil.rmtree(temp_base, ignore_errors=True)
+
+        # Save metadata with both grid sizes
         metadata_path = os.path.join(output_dir, 'metadata.json')
         metadata = {
             'gridSize': grid_size,
-            'quadrantSize': half,
+            'quadrantSize': grid_size // 2,
+            'mobileGridSize': mobile_grid_size,
+            'mobileQuadrantSize': mobile_grid_size // 2,
             'imageWidth': img_w,
             'imageHeight': img_h,
             'hasAlpha': has_alpha,

@@ -249,8 +249,12 @@ async def get_file(session_id: str, filename: str):
     """Serve generated files directly (fallback for when daemon sync fails)."""
     from fastapi.responses import FileResponse
 
-    # Security: only allow specific filenames
-    allowed_files = ['q0.webp', 'q1.webp', 'q2.webp', 'q3.webp', 'metadata.json']
+    # Security: only allow specific filenames (30x30 and 20x20 sprites)
+    allowed_files = [
+        'q0.webp', 'q1.webp', 'q2.webp', 'q3.webp',  # 30x30 sprites
+        'q0_20.webp', 'q1_20.webp', 'q2_20.webp', 'q3_20.webp',  # 20x20 mobile sprites
+        'metadata.json'
+    ]
     if filename not in allowed_files:
         raise HTTPException(status_code=404, detail="File not found")
 
@@ -260,6 +264,41 @@ async def get_file(session_id: str, filename: str):
 
     media_type = "image/webp" if filename.endswith('.webp') else "application/json"
     return FileResponse(file_path, media_type=media_type)
+
+
+@app.get("/download/{session_id}")
+async def download_zip(session_id: str):
+    """Download all output files as a single zip (more reliable than multiple downloads)."""
+    import zipfile
+    import io
+    from fastapi.responses import StreamingResponse
+
+    output_dir = Path(SCRIPT_DIR) / "jobs" / session_id / "gaze_output"
+    if not output_dir.exists():
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    # Files to include in zip
+    files_to_zip = [
+        'q0.webp', 'q1.webp', 'q2.webp', 'q3.webp',  # 30x30 sprites
+        'q0_20.webp', 'q1_20.webp', 'q2_20.webp', 'q3_20.webp',  # 20x20 mobile sprites
+        'metadata.json'
+    ]
+
+    # Create zip in memory
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_STORED) as zf:  # ZIP_STORED = no compression (webp already compressed)
+        for filename in files_to_zip:
+            file_path = output_dir / filename
+            if file_path.exists():
+                zf.write(file_path, filename)
+
+    zip_buffer.seek(0)
+
+    return StreamingResponse(
+        zip_buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={session_id}.zip"}
+    )
 
 
 @app.on_event("startup")

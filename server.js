@@ -8,6 +8,7 @@ const fs = require('fs');
 const { spawn, execSync } = require('child_process');
 const sharp = require('sharp');
 const axios = require('axios');
+const unzipper = require('unzipper');
 
 const app = express();
 const httpServer = createServer(app);
@@ -272,19 +273,8 @@ async function startGpuServer() {
     console.log('Starting GPU server on remote pod...');
 
     try {
-        // First, try to stop any existing jobs to free up port 8000
-        console.log('Stopping any existing GPU jobs...');
-        broadcastGpuStatus('stopping', 'Stopping old GPU jobs...', 2);
-        try {
-            execSync(`${GPU_CLI} stop --force --no-sync`, { cwd: __dirname, timeout: 60000, stdio: 'pipe' });
-            console.log('Old jobs stopped');
-        } catch (e) {
-            // Ignore errors - might not have any running jobs
-            console.log('No running jobs to stop (or stop failed):', e.message);
-        }
-
-        // Wait a moment for cleanup
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Don't stop existing pods - let them stay warm based on cooldown_minutes
+        // Only use --force-sync to ensure latest code is synced
 
         // Start the GPU server with port forwarding and force-sync to ensure latest code
         gpuServerProcess = spawn(GPU_CLI, [
@@ -649,87 +639,59 @@ async function generateGazeGrid(socket, sessionId, inputPath, sessionDir, remove
             message: 'Syncing sprite files from GPU pod...'
         });
 
-        const syncedOutputDir = path.join(JOBS_DIR, sessionId, 'gaze_output');
-        const expectedFiles = ['q0.webp', 'q1.webp', 'q2.webp', 'q3.webp', 'metadata.json'];
-        let syncSuccess = false;
-
-        // First, try daemon-managed sync for 30 seconds
+        // Download all files as a single zip (more reliable than multiple downloads)
+        console.log(`[${sessionId}] Downloading zip from GPU pod...`);
         socket.emit('generation-log', {
             type: 'stage',
-            stage: 'syncing',
-            message: 'Waiting for daemon sync...',
+            stage: 'downloading',
+            message: 'Downloading sprites from GPU pod...',
             timestamp: Date.now()
         });
 
-        const daemonSyncTimeout = 30000;
-        let waited = 0;
-        while (waited < daemonSyncTimeout) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            waited += 2000;
+        fs.mkdirSync(outputDir, { recursive: true });
 
-            let filesFound = 0;
-            for (const file of expectedFiles) {
-                if (fs.existsSync(path.join(syncedOutputDir, file))) {
-                    filesFound++;
-                }
-            }
-
-            if (filesFound === expectedFiles.length) {
-                syncSuccess = true;
-                console.log(`[${sessionId}] Daemon sync succeeded after ${waited/1000}s`);
-                break;
-            }
-
+        const zipUrl = `${GPU_SERVER_URL}/download/${sessionId}`;
+        try {
             socket.emit('progress', {
-                stage: 'syncing',
-                progress: 88 + (waited / daemonSyncTimeout) * 5,
-                message: `Waiting for daemon sync... (${filesFound}/${expectedFiles.length} files)`
-            });
-        }
-
-        // If daemon sync failed, fall back to HTTP download
-        if (!syncSuccess) {
-            console.log(`[${sessionId}] Daemon sync timeout, falling back to HTTP download`);
-            socket.emit('generation-log', {
-                type: 'stage',
                 stage: 'downloading',
-                message: 'Downloading files directly from GPU pod...',
-                timestamp: Date.now()
+                progress: 90,
+                message: 'Downloading sprite bundle...'
             });
 
-            fs.mkdirSync(outputDir, { recursive: true });
+            const zipResponse = await axios.get(zipUrl, {
+                responseType: 'stream',
+                timeout: 300000  // 5 minute timeout for entire zip
+            });
 
-            for (let i = 0; i < expectedFiles.length; i++) {
-                const file = expectedFiles[i];
-                const fileUrl = `${GPU_SERVER_URL}/files/${sessionId}/${file}`;
-                const filePath = path.join(outputDir, file);
-
-                try {
-                    socket.emit('progress', {
-                        stage: 'downloading',
-                        progress: 93 + (i / expectedFiles.length) * 5,
-                        message: `Downloading ${file}... (${i + 1}/${expectedFiles.length})`
+            // Extract zip directly to output directory
+            await new Promise((resolve, reject) => {
+                zipResponse.data
+                    .pipe(unzipper.Extract({ path: outputDir }))
+                    .on('close', () => {
+                        console.log(`[${sessionId}] Zip extracted successfully`);
+                        resolve();
+                    })
+                    .on('error', (err) => {
+                        console.error(`[${sessionId}] Zip extraction failed:`, err.message);
+                        reject(err);
                     });
+            });
 
-                    const fileResponse = await axios.get(fileUrl, {
-                        responseType: 'arraybuffer',
-                        timeout: 60000
-                    });
-                    fs.writeFileSync(filePath, fileResponse.data);
-                    console.log(`[${sessionId}] Downloaded ${file} (${fileResponse.data.length} bytes)`);
-                } catch (e) {
-                    console.error(`[${sessionId}] Failed to download ${file}:`, e.message);
-                    throw new Error(`Failed to download ${file}: ${e.message}`);
-                }
+            // Verify files extracted
+            const expectedFiles = ['q0.webp', 'q1.webp', 'q2.webp', 'q3.webp', 'metadata.json'];
+            const extractedFiles = fs.readdirSync(outputDir);
+            console.log(`[${sessionId}] Extracted files:`, extractedFiles.join(', '));
+
+            const missingFiles = expectedFiles.filter(f => !extractedFiles.includes(f));
+            if (missingFiles.length > 0) {
+                throw new Error(`Missing required files: ${missingFiles.join(', ')}`);
             }
-            syncSuccess = true;
-            console.log(`[${sessionId}] HTTP download completed`);
-        } else {
-            // Daemon sync succeeded, copy to uploads
-            fs.mkdirSync(outputDir, { recursive: true });
-            fs.cpSync(syncedOutputDir, outputDir, { recursive: true });
-            console.log(`[${sessionId}] Copied outputs from ${syncedOutputDir} to ${outputDir}`);
+
+        } catch (e) {
+            console.error(`[${sessionId}] Failed to download/extract zip:`, e.message);
+            throw new Error(`Failed to download sprites: ${e.message}`);
         }
+        console.log(`[${sessionId}] Download completed`);
 
         socket.emit('generation-log', {
             type: 'stage',
@@ -753,6 +715,8 @@ async function generateGazeGrid(socket, sessionId, inputPath, sessionDir, remove
             metadataPath: `/uploads/${sessionId}/gaze_output/metadata.json`,
             gridSize: metadata.gridSize,
             quadrantSize: metadata.quadrantSize || 15,
+            mobileGridSize: metadata.mobileGridSize || 20,
+            mobileQuadrantSize: metadata.mobileQuadrantSize || 10,
             imageWidth: metadata.imageWidth,
             imageHeight: metadata.imageHeight,
             mode: metadata.mode || 'quadrants',

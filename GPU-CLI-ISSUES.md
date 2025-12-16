@@ -321,11 +321,13 @@ gpu stop --force
 
 ---
 
-## Issue 12: Daemon-Managed Output Sync Unreliable
+## Issue 12: Daemon-Managed Output Sync Unreliable - USE HTTP DOWNLOAD INSTEAD
 
 **Date:** 2025-12-16
 
-**Problem:** The daemon-managed output sync often fails to sync files back from the pod, even when:
+**Status:** **CRITICAL** - Do not rely on daemon sync. Use HTTP download directly.
+
+**Problem:** The daemon-managed output sync is fundamentally unreliable and should not be used for production workloads. Files often fail to sync back from the pod, even when:
 - Output patterns in gpu.toml are correct
 - Files are written to the correct project workspace directory
 - `gpu sync-status` shows the sync as "active"
@@ -334,6 +336,7 @@ gpu stop --force
 - Files never appear locally despite generation completing on pod
 - `gpu sync-status` shows sync happening but local directory remains empty
 - Daemon logs show "output supervisor lookup failed" errors
+- 30+ second waits with no files synced
 
 **Example Daemon Logs:**
 ```
@@ -345,47 +348,49 @@ gpu stop --force
 - Connection timeouts
 - Race conditions between job completion and sync initiation
 
-**Workaround:** Implement HTTP fallback for file retrieval:
+**RECOMMENDED SOLUTION: Skip daemon sync, use HTTP download directly:**
 
 ```python
-# gaze_server.py - Add file serving endpoint
+# gaze_server.py - Add file serving endpoint on GPU pod
 @app.get("/files/{session_id}/{filename}")
 async def get_file(session_id: str, filename: str):
+    # Security: whitelist allowed files
+    allowed_files = ['output.webp', 'metadata.json']
+    if filename not in allowed_files:
+        raise HTTPException(status_code=404)
     file_path = Path(SCRIPT_DIR) / "jobs" / session_id / "output" / filename
     if not file_path.exists():
-        raise HTTPException(status_code=404, detail="File not found")
+        raise HTTPException(status_code=404)
     return FileResponse(file_path)
 ```
 
 ```javascript
-// server.js - Try daemon sync, fall back to HTTP
-const daemonSyncTimeout = 30000;
-let waited = 0;
-let synced = false;
+// server.js - Download directly via HTTP (skip daemon sync entirely)
+const expectedFiles = ['output.webp', 'metadata.json'];
 
-while (waited < daemonSyncTimeout) {
-    if (fs.existsSync(localPath)) { synced = true; break; }
-    await sleep(2000);
-    waited += 2000;
-}
-
-if (!synced) {
-    // HTTP fallback
-    const response = await axios.get(`${GPU_SERVER_URL}/files/${filename}`, {
-        responseType: 'arraybuffer'
+for (const file of expectedFiles) {
+    const fileUrl = `${GPU_SERVER_URL}/files/${sessionId}/${file}`;
+    const response = await axios.get(fileUrl, {
+        responseType: 'arraybuffer',
+        timeout: 120000  // 2 minute timeout per file
     });
-    fs.writeFileSync(localPath, response.data);
+    fs.writeFileSync(path.join(outputDir, file), response.data);
 }
 ```
 
-**Suggestion:** Add explicit sync command or callback mechanism:
+**Why HTTP is better:**
+- Deterministic - you know exactly when files are downloaded
+- No mysterious daemon state to debug
+- Works reliably across pod reprovisioning
+- Faster - no 30-second polling loops
+- Easier to debug and monitor progress
+
+**Suggestion for gpu-cli:** Add explicit sync command or remove daemon sync feature entirely:
 ```bash
 # Would be nice to have
 gpu sync from --wait  # Block until sync complete
 gpu sync from --timeout 60  # With timeout
 ```
-
-Or a webhook/callback when sync completes.
 
 ---
 
@@ -442,3 +447,60 @@ pip_global = [
     { name = "huggingface_hub" },
 ]
 ```
+
+---
+
+## Issue 14: No Separate Sync Include/Exclude (Only .gitignore)
+
+**Date:** 2025-12-16
+
+**Problem:** The sync TO pod is controlled only by `.gitignore`. There's no way to:
+- Include files that are gitignored (e.g., large dependencies you want on the pod)
+- Exclude files that aren't gitignored (e.g., documentation you don't need on pod)
+
+**Use Case:** We have `lib/LivePortrait` gitignored because it's a large dependency we don't want in the git repo. But we DO want it to sync to the pod. Currently we have to clone it on pod startup which is slow.
+
+**Current Workaround:** Clone dependencies on pod startup:
+```python
+# In gaze_server.py startup
+if not os.path.exists(lib_path):
+    subprocess.run(['git', 'clone', repo_url, lib_path])
+```
+
+**Suggestion:** Add `.gpuignore` or gpu.toml config for sync control:
+```toml
+[sync]
+# Override .gitignore - include these files even if gitignored
+include = ["lib/LivePortrait/**"]
+
+# Exclude these files even if not gitignored
+exclude = ["docs/**", "*.md", "tests/**"]
+```
+
+Or support a `.gpuignore` file that works like `.gitignore` but specifically for gpu-cli sync.
+
+---
+
+## Issue 15: Port Conflicts on Warm Pods
+
+**Date:** 2025-12-16
+
+**Problem:** When a warm pod has a previous server job still running, starting a new job on the same port fails with "address already in use".
+
+**Symptoms:**
+```
+ERROR: [Errno 98] error while attempting to bind on address ('0.0.0.0', 8000): address already in use
+```
+
+**Root Cause:** The previous job's process is still running on the pod. Running `gpu run` starts a new job without killing the old one.
+
+**Current Workaround:** Run `gpu stop --force --no-sync` before starting a new server, but this kills the entire pod and loses the "warm" benefit.
+
+**Better Solution:** Add job management commands:
+```bash
+gpu jobs kill            # Kill all running jobs on current pod
+gpu jobs kill job_000001 # Kill specific job
+gpu run --replace        # Automatically kill previous jobs before starting new one
+```
+
+Or automatically kill jobs using the same port when starting a new job.

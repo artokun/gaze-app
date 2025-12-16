@@ -124,9 +124,15 @@
         margin-top: 20px;
       }
 
-      .btn:hover {
+      .btn:hover:not(:disabled) {
         transform: translateY(-2px);
         box-shadow: 0 10px 30px rgba(255, 107, 107, 0.3);
+      }
+
+      .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        background: #666;
       }
 
       .cancel-btn {
@@ -217,9 +223,30 @@
         margin-top: 15px;
       }
 
-      .new-upload-btn:hover {
+      .new-upload-btn:hover:not(:disabled) {
         border-color: #ff6b6b;
         color: #ff6b6b;
+      }
+
+      .new-upload-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        border-color: rgba(255, 255, 255, 0.1);
+      }
+
+      .gpu-wait-note {
+        background: rgba(100, 100, 255, 0.15);
+        border: 1px solid rgba(100, 100, 255, 0.3);
+        border-radius: 8px;
+        padding: 10px 15px;
+        margin-top: 10px;
+        font-size: 0.85rem;
+        color: #a0a0ff;
+        display: none;
+      }
+
+      .gpu-wait-note.visible {
+        display: block;
       }
 
       .error-message {
@@ -735,9 +762,12 @@
             <span class="share-url" id="shareUrl"></span>
             <button class="copy-btn" id="copyBtn">Copy Link</button>
           </div>
-          <button class="new-upload-btn" id="newUploadBtn">
+          <button class="new-upload-btn" id="newUploadBtn" disabled>
             Upload New Image
           </button>
+          <div class="gpu-wait-note visible" id="gpuWaitNote">
+            ⏳ Waiting for GPU server to start...
+          </div>
         </div>
       </div>
     </div>
@@ -815,6 +845,7 @@
       const webcamVideo = document.getElementById("webcamVideo");
       const webcamCapture = document.getElementById("webcamCapture");
       const webcamClose = document.getElementById("webcamClose");
+      const gpuWaitNote = document.getElementById("gpuWaitNote");
 
       // Webcam state
       let webcamStream = null;
@@ -932,8 +963,15 @@
 
       // Session state
       let gridSize = 30;
+      let mobileGridSize = 20;
       let imageWidth = 0;
       let imageHeight = 0;
+
+      // Mobile detection - use smaller grid on mobile to prevent crashes
+      function isMobile() {
+        return window.innerWidth < 768 ||
+               /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      }
 
       // LocalStorage history functions
       function getHistory() {
@@ -1025,7 +1063,9 @@
         viewerSection.style.display = "block";
 
         // Demo metadata (from actual generated content)
+        // Note: Demo may not have mobile sprites yet - pass null to use desktop sprites on all devices
         gridSize = 30;
+        mobileGridSize = null;  // Will be set when demo is regenerated with mobile sprites
         imageWidth = 410;
         imageHeight = 512;
         currentSessionId = null;
@@ -1036,7 +1076,8 @@
         // Change button text for demo
         newUploadBtn.textContent = "Make Your Own";
 
-        initPixiViewer("/demo", 30, 15);
+        // Pass null for mobileSize since demo doesn't have mobile sprites yet
+        initPixiViewer("/demo", 30, 15, null);
       }
 
       // Check if we're loading a shared session from URL
@@ -1063,13 +1104,15 @@
                 viewerSection.style.display = "block";
 
                 gridSize = data.gridSize;
+                mobileGridSize = data.mobileGridSize || 20;
                 imageWidth = data.imageWidth;
                 imageHeight = data.imageHeight;
 
                 initPixiViewer(
                   data.basePath,
                   data.gridSize,
-                  data.quadrantSize || 15
+                  data.quadrantSize || 15,
+                  data.mobileGridSize || 20
                 );
                 return true;
               }
@@ -1180,6 +1223,7 @@
         logContent.classList.remove("open");
 
         uploadBtn.style.display = "none";
+        webcamBtn.style.display = "none";
         cancelBtn.style.display = "inline-block";
 
         const reader = new FileReader();
@@ -1234,6 +1278,7 @@
         statusMessage.textContent = "Loading viewer...";
 
         gridSize = data.gridSize;
+        mobileGridSize = data.mobileGridSize || 20;
         imageWidth = data.imageWidth;
         imageHeight = data.imageHeight;
         currentSessionId = data.sessionId;
@@ -1250,7 +1295,7 @@
           progressSection.style.display = "none";
           historySection.style.display = "none";
           viewerSection.style.display = "block";
-          initPixiViewer(data.basePath, data.gridSize, data.quadrantSize || 15);
+          initPixiViewer(data.basePath, data.gridSize, data.quadrantSize || 15, data.mobileGridSize || 20);
         }, 500);
       });
 
@@ -1276,6 +1321,10 @@
           gpuStatusBarFill.style.width = "100%";
           gpuStatusMessage.textContent = data.message;
 
+          // Enable the "Make Your Own" button
+          newUploadBtn.disabled = false;
+          gpuWaitNote.classList.remove("visible");
+
           setTimeout(() => {
             gpuStatusSection.classList.remove("visible");
           }, 2000);
@@ -1284,6 +1333,10 @@
 
         // Show provisioning status
         gpuStatusSection.classList.add("visible");
+
+        // Update the wait note with current status
+        gpuWaitNote.classList.add("visible");
+        gpuWaitNote.textContent = `⏳ ${data.message}`;
 
         // Update icon based on stage
         const icons = {
@@ -1376,15 +1429,26 @@
         errorMessage.textContent = message;
         errorMessage.style.display = "block";
         progressSection.style.display = "none";
+        previewImage.style.display = "none";
         uploadBtn.style.display = "inline-block";
+        webcamBtn.style.display = "inline-block";
         cancelBtn.style.display = "none";
       }
 
       // Reference to the gaze widget
       const gazeWidget = document.getElementById("gazeWidget");
 
-      function initPixiViewer(basePath, size, qSize = 15) {
-        gridSize = size;
+      function initPixiViewer(basePath, size, qSize = 15, mobileSize = null) {
+        // Use mobile grid on mobile devices to prevent crashes
+        // Only use mobile sprites if mobileSize is provided (indicates dual-resolution support)
+        const useMobile = isMobile() && mobileSize !== null && mobileSize !== size;
+        const effectiveGridSize = useMobile ? mobileSize : size;
+        const effectiveQuadrantSize = effectiveGridSize / 2;
+        const spriteSuffix = useMobile ? "_20" : "";
+
+        gridSize = effectiveGridSize;
+
+        console.log(`[GazeTracker] Using ${useMobile ? 'mobile' : 'desktop'} mode: ${effectiveGridSize}x${effectiveGridSize} grid${!mobileSize ? ' (no mobile sprites available)' : ''}`);
 
         // Set share URL
         if (currentSessionId) {
@@ -1393,15 +1457,15 @@
           shareSection.style.display = "flex";
         }
 
-        // Configure the gaze-tracker widget
+        // Configure the gaze-tracker widget with appropriate sprites
         const normalizedBase = normalizeAssetPath(basePath);
         const quadrantUrls = [0, 1, 2, 3]
-          .map((i) => `${normalizedBase}/q${i}.webp`.replace(/\/{2,}/g, "/"))
+          .map((i) => `${normalizedBase}/q${i}${spriteSuffix}.webp`.replace(/\/{2,}/g, "/"))
           .join(",");
 
         gazeWidget.setAttribute("src", quadrantUrls);
         gazeWidget.setAttribute("mode", "quadrants");
-        gazeWidget.setAttribute("grid", size.toString());
+        gazeWidget.setAttribute("grid", effectiveGridSize.toString());
         gazeWidget.setAttribute("width", imageWidth.toString());
         gazeWidget.setAttribute("height", imageHeight.toString());
       }
