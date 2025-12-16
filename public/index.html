@@ -532,6 +532,107 @@
           transform: rotate(360deg);
         }
       }
+
+      /* Webcam Modal */
+      .webcam-modal {
+        display: none;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 1000;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+      }
+
+      .webcam-modal.active {
+        display: flex;
+      }
+
+      .webcam-container {
+        position: relative;
+        max-width: 640px;
+        width: 90%;
+      }
+
+      .webcam-video {
+        width: 100%;
+        border-radius: 15px;
+        transform: scaleX(-1);
+        background: #000;
+      }
+
+      .webcam-controls {
+        display: flex;
+        justify-content: center;
+        gap: 20px;
+        margin-top: 20px;
+      }
+
+      .webcam-btn {
+        background: linear-gradient(90deg, #ff6b6b, #ffd93d);
+        border: none;
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        cursor: pointer;
+        font-size: 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+
+      .webcam-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 10px 30px rgba(255, 107, 107, 0.4);
+      }
+
+      .webcam-btn.capture {
+        width: 80px;
+        height: 80px;
+      }
+
+      .webcam-btn.close {
+        background: rgba(255, 255, 255, 0.2);
+        width: 50px;
+        height: 50px;
+        font-size: 1.5rem;
+      }
+
+      .webcam-btn.close:hover {
+        background: rgba(220, 53, 69, 0.8);
+        box-shadow: 0 10px 30px rgba(220, 53, 69, 0.3);
+      }
+
+      .webcam-hint {
+        color: #8892b0;
+        text-align: center;
+        margin-top: 15px;
+        font-size: 0.9rem;
+      }
+
+      .btn-group {
+        display: flex;
+        gap: 10px;
+        justify-content: center;
+        flex-wrap: wrap;
+      }
+
+      .btn-secondary {
+        background: transparent;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        color: #fff;
+      }
+
+      .btn-secondary:hover {
+        border-color: #ff6b6b;
+        color: #ff6b6b;
+        box-shadow: none;
+      }
     </style>
   </head>
   <body>
@@ -557,7 +658,7 @@
       <div class="upload-section" id="uploadSection">
         <div class="upload-icon">📸</div>
         <p class="upload-text">Drag & drop a portrait image here</p>
-        <p class="upload-hint">or click to browse (JPG, PNG - max 10MB)</p>
+        <p class="upload-hint">or click to browse, or use your camera</p>
         <input
           type="file"
           id="fileInput"
@@ -567,10 +668,25 @@
         <div class="feature-note">
           30x30 grid (900 frames) with smooth interpolation
         </div>
-        <button class="btn" id="uploadBtn">Select Image</button>
+        <div class="btn-group">
+          <button class="btn" id="uploadBtn">Select Image</button>
+          <button class="btn btn-secondary" id="webcamBtn">📷 Use Camera</button>
+        </div>
         <button class="btn cancel-btn" id="cancelBtn" style="display: none">
           Cancel
         </button>
+      </div>
+
+      <!-- Webcam Modal -->
+      <div class="webcam-modal" id="webcamModal">
+        <div class="webcam-container">
+          <video class="webcam-video" id="webcamVideo" autoplay playsinline></video>
+          <div class="webcam-controls">
+            <button class="webcam-btn close" id="webcamClose">✕</button>
+            <button class="webcam-btn capture" id="webcamCapture">📸</button>
+          </div>
+          <p class="webcam-hint">Position your face in the frame and click the capture button</p>
+        </div>
       </div>
 
       <div class="history-section" id="historySection" style="display: none">
@@ -694,6 +810,14 @@
       const logToggle = document.getElementById("logToggle");
       const logContent = document.getElementById("logContent");
       const logEntries = document.getElementById("logEntries");
+      const webcamBtn = document.getElementById("webcamBtn");
+      const webcamModal = document.getElementById("webcamModal");
+      const webcamVideo = document.getElementById("webcamVideo");
+      const webcamCapture = document.getElementById("webcamCapture");
+      const webcamClose = document.getElementById("webcamClose");
+
+      // Webcam state
+      let webcamStream = null;
 
       // GPU status state
       let gpuReady = false;
@@ -705,6 +829,72 @@
         logOpen = !logOpen;
         logToggle.classList.toggle("open", logOpen);
         logContent.classList.toggle("open", logOpen);
+      });
+
+      // Webcam handlers
+      async function openWebcam() {
+        try {
+          webcamStream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
+          });
+          webcamVideo.srcObject = webcamStream;
+          webcamModal.classList.add("active");
+        } catch (err) {
+          console.error("Webcam error:", err);
+          showError("Could not access camera. Please check permissions or use file upload instead.");
+        }
+      }
+
+      function closeWebcam() {
+        if (webcamStream) {
+          webcamStream.getTracks().forEach(track => track.stop());
+          webcamStream = null;
+        }
+        webcamVideo.srcObject = null;
+        webcamModal.classList.remove("active");
+      }
+
+      function captureWebcam() {
+        const canvas = document.createElement("canvas");
+        canvas.width = webcamVideo.videoWidth;
+        canvas.height = webcamVideo.videoHeight;
+        const ctx = canvas.getContext("2d");
+
+        // Mirror the image (since video is mirrored)
+        ctx.translate(canvas.width, 0);
+        ctx.scale(-1, 1);
+        ctx.drawImage(webcamVideo, 0, 0);
+
+        // Convert to blob and process like a file upload
+        canvas.toBlob((blob) => {
+          closeWebcam();
+
+          // Create a File object from the blob
+          const file = new File([blob], "webcam-capture.jpg", { type: "image/jpeg" });
+
+          // Show preview
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            previewImage.src = e.target.result;
+            previewImage.style.display = "block";
+            uploadBtn.textContent = "Generate Gaze";
+            uploadBtn.onclick = () => processFile(file);
+            cancelBtn.style.display = "inline-block";
+          };
+          reader.readAsDataURL(file);
+        }, "image/jpeg", 0.92);
+      }
+
+      webcamBtn.addEventListener("click", openWebcam);
+      webcamClose.addEventListener("click", closeWebcam);
+      webcamCapture.addEventListener("click", captureWebcam);
+
+      // Close webcam on escape key
+      document.addEventListener("keydown", (e) => {
+        if (e.key === "Escape" && webcamModal.classList.contains("active")) {
+          closeWebcam();
+        }
       });
 
       // Format time since generation started
@@ -759,7 +949,11 @@
         // Remove if already exists (to move to front)
         const filtered = history.filter((h) => h.sessionId !== sessionId);
         // Add to beginning
-        filtered.unshift({ sessionId, thumbnailUrl, timestamp: Date.now() });
+        filtered.unshift({
+          sessionId,
+          thumbnailUrl: normalizeAssetPath(thumbnailUrl),
+          timestamp: Date.now(),
+        });
         // Keep only last 20
         const trimmed = filtered.slice(0, 20);
         localStorage.setItem("gazeHistory", JSON.stringify(trimmed));
@@ -769,6 +963,22 @@
         const history = getHistory().filter((h) => h.sessionId !== sessionId);
         localStorage.setItem("gazeHistory", JSON.stringify(history));
         renderHistory();
+      }
+
+      // Keep asset paths relative so sessions work behind proxies or when downloaded
+      function normalizeAssetPath(url) {
+        if (!url) return "";
+        try {
+          const parsed = new URL(url, window.location.href);
+          const sameOrigin =
+            parsed.origin === window.location.origin ||
+            parsed.origin === "null" ||
+            parsed.origin === "";
+          const pathOnly = sameOrigin ? parsed.pathname : parsed.href;
+          return pathOnly.replace(/\/+$/, "");
+        } catch (e) {
+          return url.replace(/\/+$/, "");
+        }
       }
 
       function renderHistory() {
@@ -787,16 +997,12 @@
           if (thumbnailUrl && thumbnailUrl.includes("/gaze_output/q")) {
             thumbnailUrl = `/uploads/${item.sessionId}/input.jpg`;
           }
-
-          // Ensure thumbnail URL is absolute for current origin
-          if (thumbnailUrl && thumbnailUrl.startsWith("/")) {
-            thumbnailUrl = window.location.origin + thumbnailUrl;
-          }
+          const resolvedThumb = normalizeAssetPath(thumbnailUrl);
 
           const div = document.createElement("div");
           div.className = "history-item";
           div.innerHTML = `
-                    <img src="${thumbnailUrl}" alt="Gaze ${item.sessionId}">
+                    <img src="${resolvedThumb}" alt="Gaze ${item.sessionId}">
                     <button class="delete-btn" data-session="${item.sessionId}">X</button>
                 `;
           div.addEventListener("click", (e) => {
@@ -1188,12 +1394,10 @@
         }
 
         // Configure the gaze-tracker widget
-        const quadrantUrls = [
-          `${window.location.origin}${basePath}/q0.webp`,
-          `${window.location.origin}${basePath}/q1.webp`,
-          `${window.location.origin}${basePath}/q2.webp`,
-          `${window.location.origin}${basePath}/q3.webp`,
-        ].join(",");
+        const normalizedBase = normalizeAssetPath(basePath);
+        const quadrantUrls = [0, 1, 2, 3]
+          .map((i) => `${normalizedBase}/q${i}.webp`.replace(/\/{2,}/g, "/"))
+          .join(",");
 
         gazeWidget.setAttribute("src", quadrantUrls);
         gazeWidget.setAttribute("mode", "quadrants");
