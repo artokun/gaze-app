@@ -751,10 +751,16 @@
             historyGrid.innerHTML = '';
 
             history.forEach(item => {
+                // Migrate old sprite sheet thumbnails to input.jpg
+                let thumbnailUrl = item.thumbnailUrl;
+                if (thumbnailUrl && thumbnailUrl.includes('/gaze_output/q')) {
+                    thumbnailUrl = `/uploads/${item.sessionId}/input.jpg`;
+                }
+
                 const div = document.createElement('div');
                 div.className = 'history-item';
                 div.innerHTML = `
-                    <img src="${item.thumbnailUrl}" alt="Gaze ${item.sessionId}">
+                    <img src="${thumbnailUrl}" alt="Gaze ${item.sessionId}">
                     <button class="delete-btn" data-session="${item.sessionId}">X</button>
                 `;
                 div.addEventListener('click', (e) => {
@@ -982,8 +988,8 @@
             imageHeight = data.imageHeight;
             currentSessionId = data.sessionId;
 
-            // Save to history with q3 sprite (bottom-right contains center area)
-            const thumbnailUrl = `${data.basePath}/q3.webp`;
+            // Save to history with the original input image
+            const thumbnailUrl = `/uploads/${data.sessionId}/input.jpg`;
             saveToHistory(data.sessionId, thumbnailUrl);
 
             // Update URL without reloading
@@ -1125,10 +1131,10 @@
 
             // Configure the gaze-tracker widget
             const quadrantUrls = [
-                `${basePath}/q0.webp`,
-                `${basePath}/q1.webp`,
-                `${basePath}/q2.webp`,
-                `${basePath}/q3.webp`
+                `${window.location.origin}${basePath}/q0.webp`,
+                `${window.location.origin}${basePath}/q1.webp`,
+                `${window.location.origin}${basePath}/q2.webp`,
+                `${window.location.origin}${basePath}/q3.webp`
             ].join(',');
 
             gazeWidget.setAttribute('src', quadrantUrls);
