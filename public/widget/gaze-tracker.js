@@ -2,18 +2,16 @@
  * Gaze Tracker Web Component
  * A self-contained widget that displays an animated face following the cursor
  *
- * Usage (quadrant sprites - 4 files, recommended):
- *   <gaze-tracker
- *     src="q0.webp,q1.webp,q2.webp,q3.webp"
- *     mode="quadrants"
- *     grid="30">
- *   </gaze-tracker>
+ * Usage:
+ *   <gaze-tracker src="/path/to/session/"></gaze-tracker>
  *
- * With explicit dimensions (optional - auto-detected from sprite if omitted):
- *   <gaze-tracker src="q0.webp,q1.webp,q2.webp,q3.webp" grid="30" width="512" height="640"></gaze-tracker>
+ * Everything is auto-detected:
+ *   - Device type: desktop uses 30x30 grid (q0-q3.webp), mobile uses 20x20 (q0_20-q3_20.webp)
+ *   - Frame dimensions inferred from sprite size
  *
- * Usage (single sprite, legacy):
- *   <gaze-tracker src="sprite.jpg" grid="30" width="512" height="640"></gaze-tracker>
+ * Optional attributes:
+ *   src       - Root path to sprite files (default: "/")
+ *   smoothing - Animation smoothing factor (default: 0.12)
  */
 
 // Remote logger for widget
@@ -31,30 +29,32 @@ class GazeTracker extends HTMLElement {
         this.attachShadow({ mode: 'open' });
         widgetLog('info', 'constructor called');
 
-        // State
+        // Auto-detect mobile vs desktop
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+                        (window.innerWidth <= 768);
+
+        // State - grid is 30 for desktop, 20 for mobile
         this.app = null;
         this.sprite = null;
-        this.frames = [];
         this.quadrantTextures = {};
-        this.gridSize = 30;
-        this.quadrantSize = 15;
-        this.imageWidth = 512;
-        this.imageHeight = 640;
-        this.currentCol = 15;
-        this.currentRow = 15;
-        this.targetCol = 15;
-        this.targetRow = 15;
+        this.gridSize = this.isMobile ? 20 : 30;
+        this.quadrantSize = this.gridSize / 2;
+        this.imageWidth = null;  // Auto-detected
+        this.imageHeight = null; // Auto-detected
+        this.currentCol = this.gridSize / 2;
+        this.currentRow = this.gridSize / 2;
+        this.targetCol = this.gridSize / 2;
+        this.targetRow = this.gridSize / 2;
         this.smoothing = 0.12;
         this.isInitialized = false;
         this.resizeObserver = null;
-        this.mode = 'single';
         this.textureCache = {};
         this.gyroEnabled = false;
         this.isTouching = false;
     }
 
     static get observedAttributes() {
-        return ['src', 'grid', 'width', 'height', 'smoothing', 'mode'];
+        return ['src', 'smoothing'];
     }
 
     connectedCallback() {
@@ -74,31 +74,12 @@ class GazeTracker extends HTMLElement {
         if (oldValue === newValue) return;
 
         switch (name) {
-            case 'grid':
-                this.gridSize = parseInt(newValue) || 30;
-                this.quadrantSize = Math.floor(this.gridSize / 2);
-                break;
-            case 'width':
-                this.imageWidth = parseInt(newValue) || 512;
-                break;
-            case 'height':
-                this.imageHeight = parseInt(newValue) || 640;
-                break;
             case 'smoothing':
                 this.smoothing = parseFloat(newValue) || 0.12;
                 break;
-            case 'mode':
-                this.mode = newValue || 'single';
-                break;
             case 'src':
                 if (this.isInitialized) {
-                    // Re-read all attributes in case they were set together
-                    this.mode = this.getAttribute('mode') || 'single';
-                    this.gridSize = parseInt(this.getAttribute('grid')) || 30;
-                    this.quadrantSize = Math.floor(this.gridSize / 2);
-                    this.imageWidth = parseInt(this.getAttribute('width')) || 512;
-                    this.imageHeight = parseInt(this.getAttribute('height')) || 640;
-                    this.loadSprite(newValue);
+                    this.loadSprite(newValue || '/');
                 }
                 break;
         }
@@ -229,7 +210,7 @@ class GazeTracker extends HTMLElement {
     }
 
     async init() {
-        widgetLog('info', 'init started');
+        widgetLog('info', `init started (${this.isMobile ? 'mobile' : 'desktop'}, grid=${this.gridSize})`);
 
         if (typeof PIXI === 'undefined') {
             widgetLog('info', 'loading PixiJS');
@@ -243,9 +224,10 @@ class GazeTracker extends HTMLElement {
         try {
             widgetLog('info', 'creating PIXI app');
             this.app = new PIXI.Application();
+            // Start with a default size, will resize after loading sprites
             await this.app.init({
-                width: this.imageWidth,
-                height: this.imageHeight,
+                width: 512,
+                height: 640,
                 backgroundColor: 0x000000,
                 backgroundAlpha: 0,
                 resolution: 1,
@@ -256,15 +238,11 @@ class GazeTracker extends HTMLElement {
             loading.remove();
             container.appendChild(this.app.canvas);
 
-            this.mode = this.getAttribute('mode') || 'single';
-            this.quadrantSize = Math.floor(this.gridSize / 2);
-
-            const src = this.getAttribute('src');
-            if (src) {
-                widgetLog('info', `loading sprite: ${src.substring(0, 50)}...`);
-                await this.loadSprite(src);
-                widgetLog('info', 'sprite loaded');
-            }
+            // Load sprites - src is root path, default to "/" if not set
+            const src = this.getAttribute('src') || '/';
+            widgetLog('info', `loading sprites from: ${src}`);
+            await this.loadSprite(src);
+            widgetLog('info', 'sprites loaded');
 
             widgetLog('info', 'setting up tracking');
             this.setupMouseTracking();
@@ -280,7 +258,7 @@ class GazeTracker extends HTMLElement {
             widgetLog('error', `init error: ${error.message}`);
             console.error('Gaze Tracker init error:', error);
             loading.className = 'error';
-            loading.textContent = 'Failed to initialize: ' + error.message;
+            loading.textContent = 'Failed to load: ' + error.message;
         }
     }
 
@@ -298,93 +276,86 @@ class GazeTracker extends HTMLElement {
         });
     }
 
-    async loadSprite(src) {
+    async loadSprite(rootPath) {
         if (!this.app) return;
 
         try {
+            // Clean up previous sprite
             if (this.sprite) {
                 this.app.stage.removeChild(this.sprite);
                 this.sprite.destroy();
                 this.sprite = null;
             }
-            this.frames = [];
             this.quadrantTextures = {};
             this.textureCache = {};
 
-            // Auto-detect quadrants mode if src contains commas
-            const isQuadrantMode = this.mode === 'quadrants' || src.includes(',');
+            // Build quadrant URLs from root path
+            // Desktop: q0.webp, q1.webp, q2.webp, q3.webp (15x15 each = 30x30 grid)
+            // Mobile: q0_20.webp, q1_20.webp, q2_20.webp, q3_20.webp (10x10 each = 20x20 grid)
+            const suffix = this.isMobile ? '_20' : '';
+            const basePath = rootPath.endsWith('/') ? rootPath : rootPath + '/';
+            const urls = [
+                `${basePath}q0${suffix}.webp`,
+                `${basePath}q1${suffix}.webp`,
+                `${basePath}q2${suffix}.webp`,
+                `${basePath}q3${suffix}.webp`
+            ];
 
-            if (isQuadrantMode) {
-                await this.loadQuadrantSprites(src);
-            } else {
-                await this.loadSingleSprite(src);
+            widgetLog('info', `Loading quadrants: ${urls[0]}`);
+
+            // Load all quadrant textures
+            const loaded = await PIXI.Assets.load(urls);
+            this.quadrantTextures = {
+                q0: loaded[urls[0]],
+                q1: loaded[urls[1]],
+                q2: loaded[urls[2]],
+                q3: loaded[urls[3]]
+            };
+
+            // Verify all textures loaded
+            if (!this.quadrantTextures.q0 || !this.quadrantTextures.q1 ||
+                !this.quadrantTextures.q2 || !this.quadrantTextures.q3) {
+                throw new Error('Failed to load sprite images');
             }
 
+            // Infer frame dimensions from sprite size
+            // Each quadrant sprite contains quadrantSize x quadrantSize frames
+            const spriteWidth = this.quadrantTextures.q0.width;
+            const spriteHeight = this.quadrantTextures.q0.height;
+            this.imageWidth = Math.round(spriteWidth / this.quadrantSize);
+            this.imageHeight = Math.round(spriteHeight / this.quadrantSize);
+
+            // Cap frame dimensions at 1000px (WebP practical limit for smooth animation)
+            const MAX_FRAME_SIZE = 1000;
+            if (this.imageWidth > MAX_FRAME_SIZE || this.imageHeight > MAX_FRAME_SIZE) {
+                const scale = MAX_FRAME_SIZE / Math.max(this.imageWidth, this.imageHeight);
+                this.imageWidth = Math.round(this.imageWidth * scale);
+                this.imageHeight = Math.round(this.imageHeight * scale);
+                widgetLog('info', `Capped frame size to ${this.imageWidth}x${this.imageHeight}`);
+            }
+
+            // Resize PIXI app to match frame dimensions
+            this.app.renderer.resize(this.imageWidth, this.imageHeight);
+            widgetLog('info', `Frame size: ${this.imageWidth}x${this.imageHeight}, grid: ${this.gridSize}x${this.gridSize}`);
+
+            // Create sprite and add to stage
             this.sprite = new PIXI.Sprite();
             this.sprite.anchor.set(0, 0);
             this.app.stage.addChild(this.sprite);
 
-            // Scale sprite to fill canvas initially
+            // Scale sprite to fill canvas
             this.updateSpriteScale();
 
+            // Start at center frame
             const centerFrame = Math.floor(this.gridSize / 2);
             this.updateFrame(centerFrame, centerFrame);
 
+            // Start animation loop
             this.app.ticker.add(this.animate.bind(this));
 
         } catch (error) {
-            console.error('Failed to load sprite:', error);
-        }
-    }
-
-    async loadSingleSprite(src) {
-        const texture = await PIXI.Assets.load(src);
-        const baseTexture = texture.source;
-
-        for (let row = 0; row < this.gridSize; row++) {
-            for (let col = 0; col < this.gridSize; col++) {
-                const frame = new PIXI.Rectangle(
-                    col * this.imageWidth,
-                    row * this.imageHeight,
-                    this.imageWidth,
-                    this.imageHeight
-                );
-                this.frames.push(new PIXI.Texture({ source: baseTexture, frame }));
-            }
-        }
-    }
-
-    async loadQuadrantSprites(src) {
-        const urls = src.split(',').map(s => s.trim());
-        if (urls.length !== 4) {
-            throw new Error('Quadrant mode requires 4 sprite URLs');
-        }
-
-        const loaded = await PIXI.Assets.load(urls);
-        this.quadrantTextures = {
-            q0: loaded[urls[0]],
-            q1: loaded[urls[1]],
-            q2: loaded[urls[2]],
-            q3: loaded[urls[3]]
-        };
-
-        // Auto-detect frame dimensions from first quadrant if not explicitly set
-        const firstTexture = this.quadrantTextures.q0;
-        if (firstTexture && (!this.getAttribute('width') || !this.getAttribute('height'))) {
-            // Each quadrant is half the grid, so frame size = texture size / quadrantSize
-            const detectedWidth = Math.round(firstTexture.width / this.quadrantSize);
-            const detectedHeight = Math.round(firstTexture.height / this.quadrantSize);
-
-            if (!this.getAttribute('width')) {
-                this.imageWidth = detectedWidth;
-            }
-            if (!this.getAttribute('height')) {
-                this.imageHeight = detectedHeight;
-            }
-
-            // Resize the PIXI app to match detected dimensions
-            this.app.renderer.resize(this.imageWidth, this.imageHeight);
-            widgetLog('info', `Auto-detected frame size: ${this.imageWidth}x${this.imageHeight}`);
+            widgetLog('error', `Failed to load sprites: ${error.message}`);
+            throw error;  // Re-throw to show error in UI
         }
     }
 
@@ -408,45 +379,39 @@ class GazeTracker extends HTMLElement {
     }
 
     getTextureForCell(row, col) {
-        // Auto-detect mode based on what's loaded
-        const isQuadrantMode = Object.keys(this.quadrantTextures).length > 0;
+        const half = this.quadrantSize;
+        let quadrant, localRow, localCol;
 
-        if (isQuadrantMode) {
-            const half = this.quadrantSize;
-            let quadrant, localRow, localCol;
-
-            if (row < half && col < half) {
-                quadrant = this.quadrantTextures.q0;
-                localRow = row;
-                localCol = col;
-            } else if (row < half && col >= half) {
-                quadrant = this.quadrantTextures.q1;
-                localRow = row;
-                localCol = col - half;
-            } else if (row >= half && col < half) {
-                quadrant = this.quadrantTextures.q2;
-                localRow = row - half;
-                localCol = col;
-            } else {
-                quadrant = this.quadrantTextures.q3;
-                localRow = row - half;
-                localCol = col - half;
-            }
-
-            if (!quadrant) return null;
-
-            const key = `${row}_${col}`;
-            if (!this.textureCache[key]) {
-                const cellX = localCol * this.imageWidth;
-                const cellY = localRow * this.imageHeight;
-                const frame = new PIXI.Rectangle(cellX, cellY, this.imageWidth, this.imageHeight);
-                this.textureCache[key] = new PIXI.Texture({ source: quadrant.source, frame });
-            }
-            return this.textureCache[key];
+        // Determine which quadrant and local position
+        if (row < half && col < half) {
+            quadrant = this.quadrantTextures.q0;
+            localRow = row;
+            localCol = col;
+        } else if (row < half && col >= half) {
+            quadrant = this.quadrantTextures.q1;
+            localRow = row;
+            localCol = col - half;
+        } else if (row >= half && col < half) {
+            quadrant = this.quadrantTextures.q2;
+            localRow = row - half;
+            localCol = col;
         } else {
-            const frameIndex = row * this.gridSize + col;
-            return this.frames[frameIndex];
+            quadrant = this.quadrantTextures.q3;
+            localRow = row - half;
+            localCol = col - half;
         }
+
+        if (!quadrant) return null;
+
+        // Cache textures for performance
+        const key = `${row}_${col}`;
+        if (!this.textureCache[key]) {
+            const cellX = localCol * this.imageWidth;
+            const cellY = localRow * this.imageHeight;
+            const frame = new PIXI.Rectangle(cellX, cellY, this.imageWidth, this.imageHeight);
+            this.textureCache[key] = new PIXI.Texture({ source: quadrant.source, frame });
+        }
+        return this.textureCache[key];
     }
 
     updateFrame(row, col) {

@@ -961,18 +961,6 @@
       let currentSessionId = null;
       let isSharedSession = false; // True if viewing someone else's shared session
 
-      // Session state
-      let gridSize = 30;
-      let mobileGridSize = 20;
-      let imageWidth = 0;
-      let imageHeight = 0;
-
-      // Mobile detection - use smaller grid on mobile to prevent crashes
-      function isMobile() {
-        return window.innerWidth < 768 ||
-               /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-      }
-
       // LocalStorage history functions
       function getHistory() {
         try {
@@ -1062,12 +1050,6 @@
         historySection.style.display = "none";
         viewerSection.style.display = "block";
 
-        // Demo metadata (from actual generated content)
-        // Note: Demo may not have mobile sprites yet - pass null to use desktop sprites on all devices
-        gridSize = 30;
-        mobileGridSize = null;  // Will be set when demo is regenerated with mobile sprites
-        imageWidth = 410;
-        imageHeight = 512;
         currentSessionId = null;
 
         // Hide share section for demo
@@ -1076,8 +1058,7 @@
         // Change button text for demo
         newUploadBtn.textContent = "Make Your Own";
 
-        // Pass null for mobileSize since demo doesn't have mobile sprites yet
-        initPixiViewer("/demo", 30, 15, null);
+        initPixiViewer("/demo");
       }
 
       // Check if we're loading a shared session from URL
@@ -1103,17 +1084,7 @@
                 historySection.style.display = "none";
                 viewerSection.style.display = "block";
 
-                gridSize = data.gridSize;
-                mobileGridSize = data.mobileGridSize || 20;
-                imageWidth = data.imageWidth;
-                imageHeight = data.imageHeight;
-
-                initPixiViewer(
-                  data.basePath,
-                  data.gridSize,
-                  data.quadrantSize || 15,
-                  data.mobileGridSize || 20
-                );
+                initPixiViewer(data.basePath);
                 return true;
               }
             } catch (e) {
@@ -1276,11 +1247,6 @@
         progressBar.style.width = "100%";
         progressText.textContent = "100%";
         statusMessage.textContent = "Loading viewer...";
-
-        gridSize = data.gridSize;
-        mobileGridSize = data.mobileGridSize || 20;
-        imageWidth = data.imageWidth;
-        imageHeight = data.imageHeight;
         currentSessionId = data.sessionId;
 
         // Save to history with the original input image
@@ -1295,7 +1261,7 @@
           progressSection.style.display = "none";
           historySection.style.display = "none";
           viewerSection.style.display = "block";
-          initPixiViewer(data.basePath, data.gridSize, data.quadrantSize || 15, data.mobileGridSize || 20);
+          initPixiViewer(data.basePath);
         }, 500);
       });
 
@@ -1438,18 +1404,7 @@
       // Reference to the gaze widget
       const gazeWidget = document.getElementById("gazeWidget");
 
-      function initPixiViewer(basePath, size, qSize = 15, mobileSize = null) {
-        // Use mobile grid on mobile devices to prevent crashes
-        // Only use mobile sprites if mobileSize is provided (indicates dual-resolution support)
-        const useMobile = isMobile() && mobileSize !== null && mobileSize !== size;
-        const effectiveGridSize = useMobile ? mobileSize : size;
-        const effectiveQuadrantSize = effectiveGridSize / 2;
-        const spriteSuffix = useMobile ? "_20" : "";
-
-        gridSize = effectiveGridSize;
-
-        console.log(`[GazeTracker] Using ${useMobile ? 'mobile' : 'desktop'} mode: ${effectiveGridSize}x${effectiveGridSize} grid${!mobileSize ? ' (no mobile sprites available)' : ''}`);
-
+      function initPixiViewer(basePath) {
         // Set share URL
         if (currentSessionId) {
           const fullUrl = window.location.origin + "/" + currentSessionId;
@@ -1457,17 +1412,9 @@
           shareSection.style.display = "flex";
         }
 
-        // Configure the gaze-tracker widget with appropriate sprites
+        // Configure the gaze-tracker widget - it auto-detects grid size and dimensions
         const normalizedBase = normalizeAssetPath(basePath);
-        const quadrantUrls = [0, 1, 2, 3]
-          .map((i) => `${normalizedBase}/q${i}${spriteSuffix}.webp`.replace(/\/{2,}/g, "/"))
-          .join(",");
-
-        gazeWidget.setAttribute("src", quadrantUrls);
-        gazeWidget.setAttribute("mode", "quadrants");
-        gazeWidget.setAttribute("grid", effectiveGridSize.toString());
-        gazeWidget.setAttribute("width", imageWidth.toString());
-        gazeWidget.setAttribute("height", imageHeight.toString());
+        gazeWidget.setAttribute("src", normalizedBase);
       }
     </script>
   </body>
