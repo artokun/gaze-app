@@ -29,9 +29,8 @@ class GazeTracker extends HTMLElement {
         this.attachShadow({ mode: 'open' });
         widgetLog('info', 'constructor called');
 
-        // Auto-detect mobile vs desktop
-        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-                        (window.innerWidth <= 768);
+        // Auto-detect mobile vs desktop (user agent only - window width is unreliable)
+        this.isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
 
         // State - grid is 30 for desktop, 20 for mobile
         this.app = null;
@@ -47,6 +46,7 @@ class GazeTracker extends HTMLElement {
         this.targetRow = this.gridSize / 2;
         this.smoothing = 0.12;
         this.isInitialized = false;
+        this.isInitializing = false;
         this.resizeObserver = null;
         this.textureCache = {};
         this.gyroEnabled = false;
@@ -60,10 +60,17 @@ class GazeTracker extends HTMLElement {
     connectedCallback() {
         widgetLog('info', 'connectedCallback');
         this.render();
-        this.init().catch(err => {
-            widgetLog('error', `init failed: ${err.message}`);
-            console.error('GazeTracker init failed:', err);
-        });
+        // Only auto-init if src attribute is set
+        // Otherwise wait for src to be set via JavaScript
+        const src = this.getAttribute('src');
+        if (src) {
+            this.init().catch(err => {
+                widgetLog('error', `init failed: ${err.message}`);
+                console.error('GazeTracker init failed:', err);
+            });
+        } else {
+            widgetLog('info', 'waiting for src attribute to be set');
+        }
     }
 
     disconnectedCallback() {
@@ -79,7 +86,17 @@ class GazeTracker extends HTMLElement {
                 break;
             case 'src':
                 if (this.isInitialized) {
+                    // Already initialized, just load new sprites
                     this.loadSprite(newValue || '/');
+                } else if (newValue && !this.isInitializing) {
+                    // Not initialized yet but src is now set - initialize
+                    this.isInitializing = true;
+                    this.init().catch(err => {
+                        widgetLog('error', `init failed: ${err.message}`);
+                        console.error('GazeTracker init failed:', err);
+                    }).finally(() => {
+                        this.isInitializing = false;
+                    });
                 }
                 break;
         }
@@ -292,9 +309,10 @@ class GazeTracker extends HTMLElement {
             // Build quadrant URLs from root path
             // Desktop: q0.webp, q1.webp, q2.webp, q3.webp (15x15 each = 30x30 grid)
             // Mobile: q0_20.webp, q1_20.webp, q2_20.webp, q3_20.webp (10x10 each = 20x20 grid)
-            const suffix = this.isMobile ? '_20' : '';
             const basePath = rootPath.endsWith('/') ? rootPath : rootPath + '/';
-            const urls = [
+
+            let suffix = this.isMobile ? '_20' : '';
+            let urls = [
                 `${basePath}q0${suffix}.webp`,
                 `${basePath}q1${suffix}.webp`,
                 `${basePath}q2${suffix}.webp`,
@@ -303,8 +321,32 @@ class GazeTracker extends HTMLElement {
 
             widgetLog('info', `Loading quadrants: ${urls[0]}`);
 
-            // Load all quadrant textures
-            const loaded = await PIXI.Assets.load(urls);
+            // Load all quadrant textures, with fallback to desktop if mobile not available
+            let loaded;
+            try {
+                loaded = await PIXI.Assets.load(urls);
+            } catch (e) {
+                if (this.isMobile && suffix === '_20') {
+                    // Mobile sprites not found, fall back to desktop
+                    widgetLog('info', 'Mobile sprites not found, falling back to desktop');
+                    suffix = '';
+                    this.gridSize = 30;
+                    this.quadrantSize = 15;
+                    this.currentCol = 15;
+                    this.currentRow = 15;
+                    this.targetCol = 15;
+                    this.targetRow = 15;
+                    urls = [
+                        `${basePath}q0.webp`,
+                        `${basePath}q1.webp`,
+                        `${basePath}q2.webp`,
+                        `${basePath}q3.webp`
+                    ];
+                    loaded = await PIXI.Assets.load(urls);
+                } else {
+                    throw e;
+                }
+            }
             this.quadrantTextures = {
                 q0: loaded[urls[0]],
                 q1: loaded[urls[1]],

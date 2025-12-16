@@ -9,6 +9,7 @@ const { spawn, execSync } = require('child_process');
 const sharp = require('sharp');
 const axios = require('axios');
 const unzipper = require('unzipper');
+const archiver = require('archiver');
 
 const app = express();
 const httpServer = createServer(app);
@@ -241,6 +242,89 @@ app.get('/api/gpu-status', async (req, res) => {
         res.json({ status: 'ready', ...response.data });
     } catch (e) {
         res.json({ status: gpuServerStarting ? 'starting' : 'offline' });
+    }
+});
+
+// API endpoint to download widget package (sprites + readme)
+app.get('/api/download-widget/:sessionId', async (req, res) => {
+    const sessionId = req.params.sessionId;
+    const outputDir = path.join(UPLOAD_DIR, sessionId, 'gaze_output');
+
+    if (!fs.existsSync(outputDir)) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+
+    try {
+        // Set up zip stream
+        res.setHeader('Content-Type', 'application/zip');
+        res.setHeader('Content-Disposition', `attachment; filename="gaze-widget-${sessionId}.zip"`);
+
+        const archive = archiver('zip', { zlib: { level: 5 } });
+        archive.pipe(res);
+
+        // Add sprite files
+        const spriteFiles = ['q0.webp', 'q1.webp', 'q2.webp', 'q3.webp', 'q0_20.webp', 'q1_20.webp', 'q2_20.webp', 'q3_20.webp'];
+        for (const file of spriteFiles) {
+            const filePath = path.join(outputDir, file);
+            if (fs.existsSync(filePath)) {
+                archive.file(filePath, { name: `sprites/${file}` });
+            }
+        }
+
+        // Generate README with usage instructions
+        const readme = `# Your Gaze Tracker Widget
+
+## Quick Start
+
+Add this to your HTML:
+
+\`\`\`html
+<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.js"></script>
+<gaze-tracker src="/path/to/sprites/"></gaze-tracker>
+\`\`\`
+
+## Files Included
+
+- \`sprites/q0.webp\`, \`q1.webp\`, \`q2.webp\`, \`q3.webp\` - Desktop sprites (30x30 grid)
+- \`sprites/q0_20.webp\`, \`q1_20.webp\`, \`q2_20.webp\`, \`q3_20.webp\` - Mobile sprites (20x20 grid)
+
+## Usage Examples
+
+### Full Page Background
+\`\`\`html
+<gaze-tracker src="/sprites/"
+    style="position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1;">
+</gaze-tracker>
+\`\`\`
+
+### In a Container
+\`\`\`html
+<div style="width: 400px; height: 500px;">
+    <gaze-tracker src="/sprites/"></gaze-tracker>
+</div>
+\`\`\`
+
+### Circle Mask
+\`\`\`html
+<div style="width: 300px; height: 300px; border-radius: 50%; overflow: hidden;">
+    <gaze-tracker src="/sprites/"></gaze-tracker>
+</div>
+\`\`\`
+
+## Hosting Your Sprites
+
+Upload the \`sprites/\` folder to your web server and update the \`src\` attribute to point to it.
+
+Generated with https://gaze.artokun.io
+`;
+        archive.append(readme, { name: 'README.md' });
+
+        await archive.finalize();
+    } catch (e) {
+        console.error(`Failed to create widget zip for ${sessionId}:`, e);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to create download' });
+        }
     }
 });
 

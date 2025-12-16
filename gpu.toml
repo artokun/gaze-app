@@ -49,6 +49,8 @@ pip_global = [
     { name = "huggingface_hub" },
 ]
 
-# Shell steps removed - LivePortrait is now synced from project's lib/ directory
-# [environment.shell]
-# steps = []
+# Install FFmpeg (apt packages in gpu.toml don't get installed by gpu-cli)
+[environment.shell]
+steps = [
+    { run = "apt-get update && apt-get install -y ffmpeg" }
+]

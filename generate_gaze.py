@@ -357,15 +357,22 @@ class GazeGridGeneratorWeb:
                         '-framerate', '1',  # Doesn't matter for tile, but required
                         '-i', os.path.join(q_temp, 'frame_%04d.png'),
                         '-vf', f'tile={half}x{half}',
-                        '-quality', '85',
-                        '-compression_level', '4',
+                        '-c:v', 'libwebp',
+                        '-q:v', '85',
+                        '-lossless', '0',
                         output_path
                     ]
 
-                    result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-                    if result.returncode != 0:
-                        print(f"FFmpeg warning for {q_name}{suffix}: {result.stderr}", flush=True)
-                        # Fallback to PIL if FFmpeg fails
+                    try:
+                        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
+                        if result.returncode != 0:
+                            print(f"FFmpeg failed for {q_name}{suffix}, using PIL fallback. Error: {result.stderr}", flush=True)
+                            # Fallback to PIL if FFmpeg fails
+                            create_quadrant_pil(target_grid_size, suffix, q_idx, q_name, row_start, col_start, index_map, half)
+                        else:
+                            print(f"FFmpeg created {q_name}{suffix}.webp successfully", flush=True)
+                    except FileNotFoundError:
+                        print(f"FFmpeg not found, using PIL fallback for {q_name}{suffix}", flush=True)
                         create_quadrant_pil(target_grid_size, suffix, q_idx, q_name, row_start, col_start, index_map, half)
 
                     # Progress: 4 for 30x30 + 4 for 20x20 = 8 total

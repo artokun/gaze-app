@@ -218,6 +218,9 @@ async def generate(req: GenerateRequest):
         )
         print(f"Generation complete for session {req.session_id}", flush=True)
     except Exception as e:
+        import traceback
+        error_trace = traceback.format_exc()
+        print(f"ERROR: Generation failed for {req.session_id}:\n{error_trace}", flush=True)
         del _SESSION_PROGRESS[req.session_id]
         raise HTTPException(status_code=500, detail=f"Generation failed: {e}")
 
