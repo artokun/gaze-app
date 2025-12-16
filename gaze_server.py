@@ -28,10 +28,51 @@ import uvicorn
 # Add LivePortrait to path (relative to this file's directory)
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LIVEPORTRAIT_PATH = os.environ.get('LIVEPORTRAIT_PATH', os.path.join(SCRIPT_DIR, 'lib', 'LivePortrait'))
-sys.path.insert(0, LIVEPORTRAIT_PATH)
 
 # Pretrained weights path
 WEIGHTS_PATH = os.path.join(LIVEPORTRAIT_PATH, 'pretrained_weights')
+
+
+def ensure_liveportrait_cloned():
+    """Clone LivePortrait repo if source code is not present."""
+    src_path = os.path.join(LIVEPORTRAIT_PATH, 'src')
+    if os.path.exists(src_path):
+        print(f"LivePortrait source code already present at {LIVEPORTRAIT_PATH}", flush=True)
+        return True
+
+    print(f"Cloning LivePortrait repository to {LIVEPORTRAIT_PATH}...", flush=True)
+    try:
+        import subprocess
+        # Create lib directory if it doesn't exist
+        os.makedirs(os.path.dirname(LIVEPORTRAIT_PATH), exist_ok=True)
+
+        # Clone if directory doesn't exist, otherwise just ensure src is there
+        if not os.path.exists(LIVEPORTRAIT_PATH):
+            subprocess.run([
+                'git', 'clone', '--depth', '1',
+                'https://github.com/KwaiVGI/LivePortrait.git',
+                LIVEPORTRAIT_PATH
+            ], check=True)
+        else:
+            # Directory exists but no src - something went wrong, re-clone
+            import shutil
+            shutil.rmtree(LIVEPORTRAIT_PATH)
+            subprocess.run([
+                'git', 'clone', '--depth', '1',
+                'https://github.com/KwaiVGI/LivePortrait.git',
+                LIVEPORTRAIT_PATH
+            ], check=True)
+
+        print("LivePortrait cloned successfully!", flush=True)
+        return True
+    except Exception as e:
+        print(f"Error cloning LivePortrait: {e}", flush=True)
+        return False
+
+
+# Ensure LivePortrait is available before adding to path
+ensure_liveportrait_cloned()
+sys.path.insert(0, LIVEPORTRAIT_PATH)
 
 # Global generator instance (loaded once)
 _GENERATOR = None
