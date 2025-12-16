@@ -1,0 +1,54 @@
+# GPU CLI Configuration for Gaze App
+# Runs LivePortrait gaze generation on remote GPU
+
+project_id = "gaze-app"
+provider = "runpod"
+encryption = false
+
+# Keep pod warm for 10 minutes of idle time
+cooldown_minutes = 10
+
+# Sync generated outputs back to local machine
+outputs = ["jobs/*/gaze_output/"]
+
+# GPU selection - RTX 4090 (widely available, fast)
+gpu_type = "NVIDIA GeForce RTX 4090"
+
+[environment]
+base_image = "runpod/pytorch:2.4.0-py3.11-cuda12.4.1-devel-ubuntu22.04"
+
+[environment.system]
+apt = [
+    { name = "git" },
+    { name = "libgl1-mesa-glx" },
+    { name = "libglib2.0-0" },
+    { name = "libsm6" },
+    { name = "libxext6" },
+    { name = "libxrender1" },
+    { name = "ffmpeg" },
+]
+
+[environment.python]
+package_manager = "pip"
+allow_global_pip = true
+pip_global = [
+    { name = "numpy" },
+    { name = "opencv-python" },
+    { name = "pillow" },
+    { name = "onnxruntime-gpu" },
+    { name = "onnx" },
+    { name = "imageio" },
+    { name = "tyro" },
+    { name = "pyyaml" },
+    { name = "scipy" },
+    { name = "tqdm" },
+    { name = "rembg" },
+    { name = "fastapi" },
+    { name = "uvicorn" },
+    { name = "python-multipart" },
+    { name = "huggingface_hub" },
+]
+
+# Shell steps removed - LivePortrait is now synced from project's lib/ directory
+# [environment.shell]
+# steps = []

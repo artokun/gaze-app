@@ -343,6 +343,152 @@
             margin-bottom: 15px;
         }
 
+        .gpu-status-section {
+            background: rgba(100, 100, 255, 0.1);
+            border: 1px solid rgba(100, 100, 255, 0.3);
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        .gpu-status-section.visible {
+            display: block;
+        }
+
+        .gpu-status-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .gpu-status-icon {
+            font-size: 1.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        .gpu-status-icon.ready {
+            animation: none;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .gpu-status-title {
+            font-size: 1rem;
+            color: #a0a0ff;
+        }
+
+        .gpu-status-bar {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            height: 8px;
+            overflow: hidden;
+            margin-bottom: 10px;
+        }
+
+        .gpu-status-bar-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #6b6bff, #a0a0ff);
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 8px;
+        }
+
+        .gpu-status-message {
+            font-size: 0.9rem;
+            color: #8892b0;
+            text-align: center;
+        }
+
+        .generation-log {
+            margin-top: 20px;
+        }
+
+        .log-toggle {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 10px 15px;
+            color: #8892b0;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            width: 100%;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+        }
+
+        .log-toggle:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.2);
+        }
+
+        .log-toggle .arrow {
+            transition: transform 0.2s;
+        }
+
+        .log-toggle.open .arrow {
+            transform: rotate(180deg);
+        }
+
+        .log-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 0 0 8px 8px;
+        }
+
+        .log-content.open {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .log-entries {
+            padding: 10px 15px;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 0.75rem;
+            line-height: 1.6;
+        }
+
+        .log-entry {
+            color: #6a7280;
+            padding: 2px 0;
+            display: flex;
+            gap: 8px;
+        }
+
+        .log-entry .time {
+            color: #4a5568;
+            min-width: 65px;
+        }
+
+        .log-entry.stage {
+            color: #a0a0ff;
+        }
+
+        .log-entry.progress {
+            color: #68d391;
+        }
+
+        .log-entry.model {
+            color: #fbd38d;
+        }
+
+        .log-entry.complete {
+            color: #48bb78;
+            font-weight: 600;
+        }
+
+        .log-entry.heartbeat {
+            color: #ed8936;
+        }
+
         .overloaded-message {
             background: rgba(220, 53, 69, 0.2);
             border: 1px solid rgba(220, 53, 69, 0.5);
@@ -387,6 +533,17 @@
             <p class="subtitle">4 quadrant sprites (900 frames) with smooth tracking</p>
         </header>
 
+        <div class="gpu-status-section" id="gpuStatusSection">
+            <div class="gpu-status-header">
+                <span class="gpu-status-icon" id="gpuStatusIcon">🔄</span>
+                <span class="gpu-status-title">GPU Server Status</span>
+            </div>
+            <div class="gpu-status-bar">
+                <div class="gpu-status-bar-fill" id="gpuStatusBarFill"></div>
+            </div>
+            <p class="gpu-status-message" id="gpuStatusMessage">Initializing...</p>
+        </div>
+
         <div class="upload-section" id="uploadSection">
             <div class="upload-icon">📸</div>
             <p class="upload-text">Drag & drop a portrait image here</p>
@@ -412,6 +569,16 @@
                 <div class="progress-bar" id="progressBar"></div>
             </div>
             <p class="progress-text" id="progressText">0%</p>
+
+            <div class="generation-log" id="generationLog" style="display: none;">
+                <button class="log-toggle" id="logToggle">
+                    <span>📋 View generation log</span>
+                    <span class="arrow">▼</span>
+                </button>
+                <div class="log-content" id="logContent">
+                    <div class="log-entries" id="logEntries"></div>
+                </div>
+            </div>
         </div>
 
         <div class="error-message" id="errorMessage"></div>
@@ -491,6 +658,51 @@
         const shareSection = document.getElementById('shareSection');
         const shareUrl = document.getElementById('shareUrl');
         const copyBtn = document.getElementById('copyBtn');
+        const gpuStatusSection = document.getElementById('gpuStatusSection');
+        const gpuStatusIcon = document.getElementById('gpuStatusIcon');
+        const gpuStatusBarFill = document.getElementById('gpuStatusBarFill');
+        const gpuStatusMessage = document.getElementById('gpuStatusMessage');
+        const generationLog = document.getElementById('generationLog');
+        const logToggle = document.getElementById('logToggle');
+        const logContent = document.getElementById('logContent');
+        const logEntries = document.getElementById('logEntries');
+
+        // GPU status state
+        let gpuReady = false;
+        let logOpen = false;
+        let generationStartTime = null;
+
+        // Log toggle handler
+        logToggle.addEventListener('click', () => {
+            logOpen = !logOpen;
+            logToggle.classList.toggle('open', logOpen);
+            logContent.classList.toggle('open', logOpen);
+        });
+
+        // Format time since generation started
+        function formatLogTime(timestamp) {
+            if (!generationStartTime) return '00:00';
+            const elapsed = Math.floor((timestamp - generationStartTime) / 1000);
+            const mins = Math.floor(elapsed / 60).toString().padStart(2, '0');
+            const secs = (elapsed % 60).toString().padStart(2, '0');
+            return `${mins}:${secs}`;
+        }
+
+        // Add entry to log
+        function addLogEntry(type, message, timestamp) {
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            entry.innerHTML = `<span class="time">${formatLogTime(timestamp)}</span><span>${message}</span>`;
+            logEntries.appendChild(entry);
+            // Auto-scroll to bottom
+            logContent.scrollTop = logContent.scrollHeight;
+        }
+
+        // Clear log
+        function clearLog() {
+            logEntries.innerHTML = '';
+            generationStartTime = null;
+        }
 
         // State
         let currentSessionId = null;
@@ -679,6 +891,13 @@
             progressText.textContent = '0%';
             queueMessage.style.display = 'none';
 
+            // Reset generation log
+            clearLog();
+            generationLog.style.display = 'none';
+            logOpen = false;
+            logToggle.classList.remove('open');
+            logContent.classList.remove('open');
+
             uploadBtn.style.display = 'none';
             cancelBtn.style.display = 'inline-block';
 
@@ -754,6 +973,106 @@
 
         socket.on('error', (data) => {
             showError(data.message);
+        });
+
+        // GPU provisioning status handler
+        socket.on('gpu-status', (data) => {
+            gpuReady = data.stage === 'ready';
+
+            // Only show status section during cold start (not idle or ready)
+            if (data.stage === 'idle') {
+                gpuStatusSection.classList.remove('visible');
+                return;
+            }
+
+            if (data.stage === 'ready') {
+                // Show briefly then hide
+                gpuStatusSection.classList.add('visible');
+                gpuStatusIcon.textContent = '✅';
+                gpuStatusIcon.classList.add('ready');
+                gpuStatusBarFill.style.width = '100%';
+                gpuStatusMessage.textContent = data.message;
+
+                setTimeout(() => {
+                    gpuStatusSection.classList.remove('visible');
+                }, 2000);
+                return;
+            }
+
+            // Show provisioning status
+            gpuStatusSection.classList.add('visible');
+
+            // Update icon based on stage
+            const icons = {
+                detecting: '🔍',
+                resolving: '⚙️',
+                provisioning: '🚀',
+                connecting: '🔗',
+                syncing: '📦',
+                installing: '📥',
+                starting: '▶️',
+                weights: '🧠',
+                loading: '⏳'
+            };
+            gpuStatusIcon.textContent = icons[data.stage] || '🔄';
+            gpuStatusIcon.classList.remove('ready');
+
+            // Update progress bar
+            gpuStatusBarFill.style.width = `${data.progress}%`;
+
+            // Update message
+            gpuStatusMessage.textContent = data.message;
+        });
+
+        // Generation log handler
+        socket.on('generation-log', (data) => {
+            // Show the log section
+            generationLog.style.display = 'block';
+
+            // Set start time on first message
+            if (!generationStartTime) {
+                generationStartTime = data.timestamp;
+            }
+
+            // Add log entry based on type
+            switch (data.type) {
+                case 'stage':
+                    addLogEntry('stage', `▸ ${data.message}`, data.timestamp);
+                    break;
+                case 'heartbeat':
+                    // Update the last heartbeat entry instead of adding new ones
+                    const lastEntry = logEntries.querySelector('.log-entry.heartbeat:last-child');
+                    const mins = Math.floor(data.elapsed / 60);
+                    const secs = data.elapsed % 60;
+                    const timeStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                    const msg = `⏳ GPU processing... (${timeStr} elapsed)`;
+                    if (lastEntry) {
+                        lastEntry.querySelector('span:last-child').textContent = msg;
+                    } else {
+                        addLogEntry('heartbeat', msg, data.timestamp);
+                    }
+                    break;
+                case 'progress':
+                    // Only log every 10% to avoid spam
+                    if (data.percent % 10 === 0 || data.percent === 100) {
+                        addLogEntry('progress', `Generated ${data.percent}% of images`, data.timestamp);
+                    }
+                    break;
+                case 'bg_progress':
+                    if (data.percent % 20 === 0 || data.percent === 100) {
+                        addLogEntry('progress', `Background removal ${data.percent}%`, data.timestamp);
+                    }
+                    break;
+                case 'save_progress':
+                    addLogEntry('progress', `Saved quadrant ${Math.ceil(data.percent / 25)}/4`, data.timestamp);
+                    break;
+                case 'model':
+                    addLogEntry('model', `Loaded ${data.model}`, data.timestamp);
+                    break;
+                case 'complete':
+                    addLogEntry('complete', '✓ Generation complete!', data.timestamp);
+                    break;
+            }
         });
 
         function showError(message) {

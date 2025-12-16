@@ -13,8 +13,10 @@ import cv2
 from PIL import Image
 import json
 
-# Add LivePortrait to path
-sys.path.insert(0, '/workspace/LivePortrait')
+# Add LivePortrait to path (relative to this file's directory)
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+LIVEPORTRAIT_PATH = os.environ.get('LIVEPORTRAIT_PATH', os.path.join(SCRIPT_DIR, 'lib', 'LivePortrait'))
+sys.path.insert(0, LIVEPORTRAIT_PATH)
 
 from src.config.inference_config import InferenceConfig
 from src.config.crop_config import CropConfig
@@ -213,11 +215,17 @@ class GazeGridGeneratorWeb:
 
         return out_images
 
-    def generate_grid(self, input_image_path, output_dir, sprite_output, grid_size=30, batch_size=8):
+    def generate_grid(self, input_image_path, output_dir, sprite_output, grid_size=30, batch_size=8, progress_callback=None):
         """Generate grid of individual high-res WebP images (v2 - no sprite sheet)"""
         os.makedirs(output_dir, exist_ok=True)
+        total_images = grid_size * grid_size
 
-        print("STAGE:preparing:Preparing source image...", flush=True)
+        def report_progress(stage, current, total, message):
+            print(f"STAGE:{stage}:{message}", flush=True)
+            if progress_callback:
+                progress_callback(stage, current, total, message)
+
+        report_progress("preparing", 0, total_images, "Preparing source image...")
         source_data = self.prepare_source(input_image_path, scale=2.3)
 
         # Calculate step to get grid_size points from -15 to 15
@@ -243,8 +251,7 @@ class GazeGridGeneratorWeb:
                     'eyebrow': eyebrow
                 })
 
-        total_images = len(all_params)
-        print(f"STAGE:generating:Generating {total_images} images ({grid_size}x{grid_size} grid)", flush=True)
+        report_progress("generating", 0, total_images, f"Generating {total_images} images ({grid_size}x{grid_size} grid)")
 
         generated_images = []
         for i in range(0, total_images, batch_size):
@@ -254,12 +261,15 @@ class GazeGridGeneratorWeb:
             for j, (params, out_img) in enumerate(zip(batch_params, out_images)):
                 generated_images.append((params['x'], params['y'], out_img))
 
-            progress = min(100, int((i + len(batch_params)) / total_images * 100))
+            current = i + len(batch_params)
+            progress = min(100, int(current / total_images * 100))
             print(f"PROGRESS:{progress}", flush=True)
+            if progress_callback:
+                progress_callback("generating", current, total_images, f"Generated {current}/{total_images} images ({progress}%)")
 
         # Background removal if enabled
         if self.remove_background and self.bg_remover:
-            print("STAGE:removing_bg:Removing backgrounds (this takes a while)...", flush=True)
+            report_progress("removing_bg", 0, total_images, "Removing backgrounds...")
             total_for_bg = len(generated_images)
 
             processed_images = []
@@ -268,11 +278,13 @@ class GazeGridGeneratorWeb:
                 processed_images.append((x_val, y_val, rgba_img))
                 bg_progress = int((idx + 1) / total_for_bg * 100)
                 print(f"PROGRESS_BG:{bg_progress}", flush=True)
+                if progress_callback:
+                    progress_callback("removing_bg", idx + 1, total_for_bg, f"Removing background {idx + 1}/{total_for_bg} ({bg_progress}%)")
 
             generated_images = processed_images
 
         # Create 4 quadrant sprite sheets (v2 - faster loading than 900 individual files)
-        print("STAGE:saving:Creating quadrant sprite sheets...", flush=True)
+        report_progress("saving", 0, 4, "Creating quadrant sprite sheets...")
 
         first_img = generated_images[0][2]
         img_h, img_w = first_img.shape[:2]

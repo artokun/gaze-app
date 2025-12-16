@@ -5,44 +5,76 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-# Start the server (runs on port 3000)
-npm start
-```
+# Install dependencies
+npm install
 
-The Python script `generate_gaze.py` is invoked automatically by the server as a subprocess - it requires LivePortrait installed at `/workspace/LivePortrait`.
+# Start the server (runs on port 3000, auto-starts GPU pod)
+npm start
+
+# Manual GPU commands (if needed)
+gpu run python gaze_server.py          # Start pod server manually
+gpu status                             # Check pod status
+gpu stop                               # Stop the pod
+```
 
 ## Architecture
 
 This is a gaze-tracking face animation app that generates sprite sheets of face images looking in different directions, then animates them smoothly based on cursor/touch/gyroscope input.
 
+### Remote GPU Architecture (gpu-cli)
+
+```
+Local (port 3000)              Remote GPU Pod (port 8000)
+┌─────────────────┐            ┌─────────────────────────┐
+│   server.js     │ ──HTTP──▶  │   gaze_server.py        │
+│   (Express +    │            │   (FastAPI + LivePortrait)
+│    Socket.IO)   │ ◀──JSON──  │                         │
+└─────────────────┘            └─────────────────────────┘
+         │                                │
+         ▼                                ▼
+    uploads/                        /workspace/jobs/
+    (local storage)                 (pod storage, syncs back)
+```
+
 ### Data Flow
 
-1. **Upload**: User uploads a portrait image via the web interface
-2. **Processing Queue**: Server queues the job (max 20 concurrent)
-3. **Generation**: Python subprocess runs LivePortrait ML models to generate 900 face variations (30x30 grid of gaze directions)
-4. **Output**: 4 quadrant WebP sprite sheets (q0.webp-q3.webp) saved to `uploads/{sessionId}/gaze_output/`
-5. **Viewing**: `<gaze-tracker>` web component loads sprites and interpolates between frames
+1. **Upload**: User uploads portrait via web interface → saved to `uploads/{sessionId}/`
+2. **GPU Transfer**: server.js sends base64 image to pod's FastAPI server
+3. **Generation**: Pod runs LivePortrait ML models → generates 900 gaze variations
+4. **Sync**: `gpu sync from` pulls outputs from pod to local `jobs/` directory
+5. **Copy**: Results copied from `jobs/{sessionId}/` to `uploads/{sessionId}/`
+6. **Viewing**: `<gaze-tracker>` web component loads sprites and animates
 
 ### Key Components
 
-**server.js** - Express + Socket.IO server
+**server.js** - Express + Socket.IO + gpu-cli integration
 - Handles image uploads and resizing via Sharp (max 512px)
 - Manages processing queue with real-time progress via Socket.IO
-- Spawns Python subprocess for gaze generation
-- Serves session URLs (`/{sessionId}`) for sharing
+- Starts GPU pod on server startup (warm mode)
+- Sends HTTP requests to pod's FastAPI server for generation
+- Syncs results back via `gpu sync from`
 
-**generate_gaze.py** - Python ML processing
+**gaze_server.py** - FastAPI server running on GPU pod
+- `/health` - Health check endpoint
+- `/generate` - Accepts base64 image, runs generation, returns metadata
+- Pre-loads LivePortrait models on startup for faster requests
+
+**generate_gaze.py** - Python ML processing (called by gaze_server.py)
 - Uses LivePortrait models for face retargeting
-- Generates 900 images with varying pupil position, head pitch/yaw, and eyebrow movement
+- Generates 900 images with varying pupil position, head pitch/yaw, eyebrow
 - Outputs 4 quadrant sprite sheets (15x15 each) as WebP
 - Optional background removal via rembg
+
+**gpu.toml** - gpu-cli configuration
+- Configures RunPod provider with RTX 4090
+- Installs LivePortrait and dependencies on pod
+- Defines output sync patterns (`jobs/*/gaze_output/`)
 
 **public/widget/gaze-tracker.js** - Web component
 - Custom `<gaze-tracker>` element with Shadow DOM
 - Loads PixiJS dynamically, renders sprite frames
 - Supports quadrant mode (4 sprites) or single sprite mode
 - Input: mouse, touch, and device gyroscope
-- Smoothing via linear interpolation between target and current frame
 
 ### Web Component Usage
 
@@ -55,13 +87,17 @@ This is a gaze-tracking face animation app that generates sprite sheets of face 
   width="512"
   height="640">
 </gaze-tracker>
-
-<!-- Single sprite mode -->
-<gaze-tracker src="sprite.jpg" grid="30" width="512" height="640"></gaze-tracker>
 ```
+
+### Environment Variables
+
+- `PORT` - Server port (default: 3000)
+- `GPU_CLI` - Path to gpu-cli binary (default: `gpu`)
+- `LIVEPORTRAIT_PATH` - Path to LivePortrait on pod (default: `/workspace/LivePortrait`)
 
 ### Session Storage
 
 - Generated sessions stored in `uploads/{sessionId}/`
+- GPU working files synced to `jobs/{sessionId}/`
 - User history persisted in localStorage (last 20 sessions)
 - Sessions are shareable via URL

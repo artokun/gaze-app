@@ -1,5 +1,11 @@
 node_modules/
 uploads/
+jobs/
+lib/
+.gpu/
 .env
 *.log
+*.jpeg
+*.jpg
+*.png
 .DS_Store
