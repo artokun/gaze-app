@@ -1,0 +1,45 @@
+name: Publish widget to public CDN repo
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/widget/**"
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      - name: Prepare publish directory
+        run: |
+          rm -rf /tmp/widget-publish
+          mkdir -p /tmp/widget-publish
+          cp public/widget/gaze-tracker.js /tmp/widget-publish/
+          cp public/widget/README.md /tmp/widget-publish/ || true
+
+      - name: Push to distro repo
+        env:
+          TARGET_REPO: artokun/gaze-widget-dist
+          TARGET_BRANCH: main
+          GIT_SSH_COMMAND: ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no
+        run: |
+          cd /tmp/widget-publish
+          git init
+          git config user.name "cdn-bot"
+          git config user.email "cdn-bot@users.noreply.github.com"
+          git add .
+          git commit -m "Update widget from ${GITHUB_REPOSITORY} @${GITHUB_SHA::7}"
+          git branch -M $TARGET_BRANCH
+          git remote add origin git@github.com:$TARGET_REPO.git
+          git push -f origin $TARGET_BRANCH
