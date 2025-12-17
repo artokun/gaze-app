@@ -20,9 +20,6 @@ export function FullscreenView({
   const [gyroMode, setGyroMode] = useState<'tilt' | 'drag' | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  // basePath already ends with / so don't add another
-  const spriteSrc = `${basePath}q0.webp,${basePath}q1.webp,${basePath}q2.webp,${basePath}q3.webp`
-
   useEffect(() => {
     if (containerRef.current && (gyroMode || !isMobile)) {
       // Clear container
@@ -30,7 +27,8 @@ export function FullscreenView({
 
       // Create gaze-tracker element
       const tracker = document.createElement('gaze-tracker')
-      tracker.setAttribute('src', spriteSrc)
+      // Widget expects base path, it appends q0.webp, q1.webp, etc. internally
+      tracker.setAttribute('src', basePath)
       tracker.setAttribute('hide-controls', '')
       tracker.style.width = '100%'
       tracker.style.height = '100%'
@@ -41,7 +39,7 @@ export function FullscreenView({
 
       containerRef.current.appendChild(tracker)
     }
-  }, [gyroMode, isMobile, spriteSrc])
+  }, [gyroMode, isMobile, basePath])
 
   const handleGyroSelect = async (mode: 'tilt' | 'drag') => {
     if (mode === 'tilt') {
