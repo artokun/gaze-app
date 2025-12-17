@@ -65,14 +65,28 @@
         <p>Desktop: mouse | Mobile: two-finger pan or gyroscope</p>
     </div>
 
+    <script>
+        // Show local server notice for file:// protocol
+        if (window.location.protocol === 'file:') {
+            document.querySelector('.overlay').innerHTML = `
+                <h1>Local Server Required</h1>
+                <p>Run this command in the folder containing these files:</p>
+                <p style="font-family: monospace; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; margin: 10px 0;">npx serve</p>
+                <p>Then open <strong>http://localhost:3000</strong></p>
+            `;
+            document.querySelector('.overlay').style.opacity = '1';
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.js"></script>
     <script>
-        // Hide overlay after first interaction
-        ['mousemove', 'touchstart'].forEach(evt => {
-            document.addEventListener(evt, () => {
-                document.body.classList.add('interacted');
-            }, { once: true });
-        });
+        // Hide overlay after first interaction (only if not file://)
+        if (window.location.protocol !== 'file:') {
+            ['mousemove', 'touchstart'].forEach(evt => {
+                document.addEventListener(evt, () => {
+                    document.body.classList.add('interacted');
+                }, { once: true });
+            });
+        }
     </script>
 </body>
 </html>

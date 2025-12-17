@@ -267,15 +267,21 @@ class GazeTracker extends HTMLElement {
             widgetLog('info', 'creating PIXI app');
             this.app = new PIXI.Application();
             // Start with a default size, will resize after loading sprites
-            await this.app.init({
+            // Use Canvas2D for file:// protocol (WebGL has tainted canvas issues)
+            const initOptions = {
                 width: 512,
                 height: 640,
                 backgroundColor: 0x000000,
                 backgroundAlpha: 0,
                 resolution: 1,
                 autoDensity: false
-            });
-            widgetLog('info', 'PIXI app created');
+            };
+            if (isOffline) {
+                initOptions.preference = 'webgpu';  // Will fall back to webgl, then canvas
+                initOptions.preferWebGLVersion = 1; // Older WebGL might work better
+            }
+            await this.app.init(initOptions);
+            widgetLog('info', `PIXI app created (renderer: ${this.app.renderer.type})`);
 
             // Load sprites - src is root path, default to "/" if not set
             const src = this.getAttribute('src') || '/';
@@ -302,14 +308,23 @@ class GazeTracker extends HTMLElement {
         } catch (error) {
             widgetLog('error', `init error: ${error.message}`);
             console.error('Gaze Tracker init error:', error);
+
+            // Check if this is a tainted canvas error (file:// protocol limitation)
+            let errorMessage = 'Failed to load: ' + error.message;
+            if (isOffline && (error.message.includes('Tainted') || error.message.includes('SecurityError'))) {
+                errorMessage = 'Cannot load from file://. Please run a local server:\n\nnpx serve\n\nThen open http://localhost:3000';
+            }
+
             if (loading && loading.parentNode) {
                 loading.className = 'error';
-                loading.textContent = 'Failed to load: ' + error.message;
+                loading.textContent = errorMessage;
+                loading.style.whiteSpace = 'pre-line';
             } else {
                 // Loading element was removed, create error element
                 const errorEl = document.createElement('div');
                 errorEl.className = 'error';
-                errorEl.textContent = 'Failed to load: ' + error.message;
+                errorEl.textContent = errorMessage;
+                errorEl.style.whiteSpace = 'pre-line';
                 container.appendChild(errorEl);
             }
         }

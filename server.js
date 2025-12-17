@@ -286,19 +286,23 @@ app.get('/api/download-widget/:sessionId', async (req, res) => {
         // Generate README with usage instructions
         const readme = `# Your Gaze Tracker Widget
 
-## Quick Start - Just Double-Click!
+## Quick Start
 
-Open one of the included demo files to see your gaze tracker in action:
+Due to browser security restrictions, you need to run a local server:
 
-- **demo-fullscreen.html** - Full page background (great for kiosk/display)
-- **demo-resizable.html** - Resizable container demo with UI elements
+\`\`\`bash
+cd /path/to/this/folder
+npx serve
+\`\`\`
+
+Then open **http://localhost:3000** and click on a demo file.
 
 ## Files Included
 
 - \`q0.webp\`, \`q1.webp\`, \`q2.webp\`, \`q3.webp\` - Desktop sprites (30x30 grid)
 - \`q0_20.webp\`, \`q1_20.webp\`, \`q2_20.webp\`, \`q3_20.webp\` - Mobile sprites (20x20 grid)
-- \`demo-fullscreen.html\` - Full page demo (double-click to open)
-- \`demo-resizable.html\` - Resizable container demo (double-click to open)
+- \`demo-fullscreen.html\` - Full page demo
+- \`demo-resizable.html\` - Resizable container demo
 
 The widget JavaScript is loaded from CDN automatically.
 

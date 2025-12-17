@@ -265,6 +265,20 @@
         </div>
     </div>
 
+    <script>
+        // Show local server notice for file:// protocol
+        if (window.location.protocol === 'file:') {
+            document.querySelector('.info-panel').innerHTML = `
+                <div style="text-align: center; padding: 40px 20px;">
+                    <h2 style="color: #ff6b6b; margin-bottom: 20px;">Local Server Required</h2>
+                    <p style="margin-bottom: 15px;">Due to browser security restrictions, this demo cannot run directly from the filesystem.</p>
+                    <p style="margin-bottom: 10px;">Run this command in the folder containing these files:</p>
+                    <p style="font-family: monospace; background: rgba(0,0,0,0.3); padding: 15px; border-radius: 8px; margin: 15px 0;">npx serve</p>
+                    <p>Then open <strong style="color: #00d9ff;">http://localhost:3000</strong></p>
+                </div>
+            `;
+        }
+    </script>
     <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.js"></script>
 </body>
 </html>
