@@ -19,12 +19,77 @@ interface SessionBottomBarProps {
 
 const CDN_VERSION = 'v1.0.5'
 
+type Framework = 'react' | 'vue' | 'js' | 'astro' | 'solid' | 'webflow'
+
+const frameworkInfo: Record<Framework, { name: string; icon: string; instructions: React.ReactNode }> = {
+  react: {
+    name: 'React',
+    icon: '⚛️',
+    instructions: (
+      <>
+        Add the script to your <code className="bg-muted px-1 rounded">layout.tsx</code> or use{' '}
+        <code className="bg-muted px-1 rounded">next/script</code>. The web component works directly in JSX.
+      </>
+    ),
+  },
+  vue: {
+    name: 'Vue',
+    icon: '💚',
+    instructions: (
+      <>
+        Add script to <code className="bg-muted px-1 rounded">nuxt.config.ts</code> head or use{' '}
+        <code className="bg-muted px-1 rounded">useHead()</code>. Works with Vue 3 and Nuxt 3.
+      </>
+    ),
+  },
+  js: {
+    name: 'Vanilla JS',
+    icon: '📜',
+    instructions: (
+      <>
+        Add the script tag to your HTML <code className="bg-muted px-1 rounded">&lt;head&gt;</code>, then use the{' '}
+        <code className="bg-muted px-1 rounded">&lt;gaze-tracker&gt;</code> element anywhere in your page.
+      </>
+    ),
+  },
+  astro: {
+    name: 'Astro',
+    icon: '🚀',
+    instructions: (
+      <>
+        Add the script to your <code className="bg-muted px-1 rounded">Layout.astro</code> head.
+        Use <code className="bg-muted px-1 rounded">is:inline</code> if needed.
+      </>
+    ),
+  },
+  solid: {
+    name: 'Solid',
+    icon: '💠',
+    instructions: (
+      <>
+        Works like React. Add script to your root <code className="bg-muted px-1 rounded">index.html</code> and use the web component directly in JSX.
+      </>
+    ),
+  },
+  webflow: {
+    name: 'Webflow',
+    icon: '🔷',
+    instructions: (
+      <>
+        Go to Project Settings → Custom Code → Head Code and paste the script. Then add an Embed element and paste the{' '}
+        <code className="bg-muted px-1 rounded">&lt;gaze-tracker&gt;</code> component.
+      </>
+    ),
+  },
+}
+
 export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
   const [showEmbedModal, setShowEmbedModal] = useState(false)
   const [showMobileAlert, setShowMobileAlert] = useState(false)
   const [copiedScript, setCopiedScript] = useState(false)
   const [copiedComponent, setCopiedComponent] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
+  const [selectedFramework, setSelectedFramework] = useState<Framework>('react')
 
   const viewUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/${sessionId}/view`
@@ -189,27 +254,25 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
             {/* Framework Tips */}
             <div className="border-t pt-4">
               <h3 className="text-sm font-medium mb-3">Framework-specific tips</h3>
-              <div className="grid gap-3 text-sm text-muted-foreground">
-                <div>
-                  <span className="font-medium text-foreground">React/Next.js:</span>{' '}
-                  Add the script to your <code className="bg-muted px-1 rounded">layout.tsx</code> or use{' '}
-                  <code className="bg-muted px-1 rounded">next/script</code>. The web component works directly in JSX.
-                </div>
-                <div>
-                  <span className="font-medium text-foreground">Astro:</span>{' '}
-                  Add the script to your <code className="bg-muted px-1 rounded">Layout.astro</code> head.
-                  Use <code className="bg-muted px-1 rounded">is:inline</code> if needed.
-                </div>
-                <div>
-                  <span className="font-medium text-foreground">Vue/Nuxt:</span>{' '}
-                  Add script to <code className="bg-muted px-1 rounded">nuxt.config.ts</code> head or use{' '}
-                  <code className="bg-muted px-1 rounded">useHead()</code>.
-                </div>
-                <div>
-                  <span className="font-medium text-foreground">Solid/Qwik:</span>{' '}
-                  Works like React. Add script to root and use the web component directly.
-                </div>
+              <div className="flex flex-wrap gap-2 mb-3">
+                {(Object.keys(frameworkInfo) as Framework[]).map((fw) => (
+                  <button
+                    key={fw}
+                    onClick={() => setSelectedFramework(fw)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${
+                      selectedFramework === fw
+                        ? 'bg-foreground text-background'
+                        : 'bg-muted hover:bg-muted/80'
+                    }`}
+                  >
+                    <span>{frameworkInfo[fw].icon}</span>
+                    <span>{frameworkInfo[fw].name}</span>
+                  </button>
+                ))}
               </div>
+              <p className="text-sm text-muted-foreground">
+                {frameworkInfo[selectedFramework].instructions}
+              </p>
             </div>
 
             {/* Options */}
