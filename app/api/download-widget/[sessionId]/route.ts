@@ -13,11 +13,10 @@ export async function GET(
 ) {
   const { sessionId } = await params
   const outputDir = getSessionPath(sessionId, 'gaze_output')
-  const localExists = fs.existsSync(outputDir)
 
-  // Session must exist either locally or on CDN
-  if (!localExists && !useCfImages) {
-    return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+  // Session must exist on CDN (we no longer store sprites locally in production)
+  if (!useCfImages) {
+    return NextResponse.json({ error: 'Storage not configured' }, { status: 500 })
   }
 
   try {
@@ -27,7 +26,7 @@ export async function GET(
     const archive = archiver('zip', { zlib: { level: 5 } })
     archive.on('data', (chunk) => chunks.push(chunk))
 
-    // Add sprite files - from local storage or CDN
+    // Add sprite files - always fetch from R2/CDN (GPU uploads directly there)
     const spriteFiles = [
       'q0.webp',
       'q1.webp',
@@ -39,20 +38,24 @@ export async function GET(
       'q3_20.webp',
     ]
 
+    let filesAdded = 0
     for (const file of spriteFiles) {
       const localPath = path.join(outputDir, file)
 
-      if (localExists && fs.existsSync(localPath)) {
-        // File exists locally - use it
+      // Check local first (for development), then fall back to CDN
+      if (fs.existsSync(localPath)) {
         archive.file(localPath, { name: file })
-      } else if (useCfImages) {
+        filesAdded++
+      } else {
         // Fetch from CDN - sprites are stored at {sessionId}/gaze_output/{file}
         try {
           const cdnUrl = getImageUrl(sessionId, `gaze_output/${file}`)
+          console.log(`Fetching ${file} from CDN: ${cdnUrl}`)
           const response = await fetch(cdnUrl)
           if (response.ok) {
             const buffer = Buffer.from(await response.arrayBuffer())
             archive.append(buffer, { name: file })
+            filesAdded++
           } else {
             console.error(`Failed to fetch ${file} from CDN: ${response.status}`)
           }
@@ -60,6 +63,10 @@ export async function GET(
           console.error(`Failed to fetch ${file} from CDN:`, err)
         }
       }
+    }
+
+    if (filesAdded === 0) {
+      return NextResponse.json({ error: 'No sprites found for session' }, { status: 404 })
     }
 
     // Add demo HTML files
