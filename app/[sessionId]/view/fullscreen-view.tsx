@@ -21,23 +21,31 @@ export function FullscreenView({
   const containerRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (containerRef.current && (gyroMode || !isMobile)) {
-      // Clear container
-      containerRef.current.innerHTML = ''
+    const container = containerRef.current
+    if (!container || (isMobile && !gyroMode)) return
 
-      // Create gaze-tracker element
-      const tracker = document.createElement('gaze-tracker')
-      // Widget expects base path, it appends q0.webp, q1.webp, etc. internally
-      tracker.setAttribute('src', basePath)
-      tracker.setAttribute('hide-controls', '')
-      tracker.style.width = '100%'
-      tracker.style.height = '100%'
+    // Clear container
+    container.innerHTML = ''
 
-      if (gyroMode === 'tilt') {
-        tracker.setAttribute('data-gyro', 'true')
+    // Create gaze-tracker element
+    const tracker = document.createElement('gaze-tracker')
+    // Widget expects base path, it appends q0.webp, q1.webp, etc. internally
+    tracker.setAttribute('src', basePath)
+    tracker.setAttribute('hide-controls', '')
+    tracker.style.width = '100%'
+    tracker.style.height = '100%'
+
+    if (gyroMode === 'tilt') {
+      tracker.setAttribute('data-gyro', 'true')
+    }
+
+    container.appendChild(tracker)
+
+    // Cleanup on unmount
+    return () => {
+      if (container) {
+        container.innerHTML = ''
       }
-
-      containerRef.current.appendChild(tracker)
     }
   }, [gyroMode, isMobile, basePath])
 

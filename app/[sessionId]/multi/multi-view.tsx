@@ -14,7 +14,9 @@ export function MultiView({ sessionId, basePath }: MultiViewProps) {
   const containerRefs = useRef<(HTMLDivElement | null)[]>([])
 
   useEffect(() => {
-    containerRefs.current.forEach((container) => {
+    const containers = containerRefs.current.filter(Boolean)
+
+    containers.forEach((container) => {
       if (container) {
         container.innerHTML = ''
         const tracker = document.createElement('gaze-tracker')
@@ -24,6 +26,15 @@ export function MultiView({ sessionId, basePath }: MultiViewProps) {
         container.appendChild(tracker)
       }
     })
+
+    // Cleanup on unmount
+    return () => {
+      containers.forEach((container) => {
+        if (container) {
+          container.innerHTML = ''
+        }
+      })
+    }
   }, [basePath])
 
   return (
