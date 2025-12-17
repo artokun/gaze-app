@@ -146,13 +146,13 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
             <div>
               <h3 className="text-sm font-medium mb-2">1. Add the script to your HTML head</h3>
               <div className="relative">
-                <pre className="bg-muted p-3 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                <pre className="bg-muted p-3 pr-10 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                   <code>{scriptCode}</code>
                 </pre>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute top-1 right-1 h-7"
+                  className="absolute top-2 right-2 h-7"
                   onClick={() => copyToClipboard(scriptCode, setCopiedScript)}
                 >
                   {copiedScript ? (
@@ -168,13 +168,13 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
             <div>
               <h3 className="text-sm font-medium mb-2">2. Add the web component where you want it</h3>
               <div className="relative">
-                <pre className="bg-muted p-3 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                <pre className="bg-muted p-3 pr-10 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                   <code>{componentCode}</code>
                 </pre>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute top-1 right-1 h-7"
+                  className="absolute top-2 right-2 h-7"
                   onClick={() => copyToClipboard(componentCode, setCopiedComponent)}
                 >
                   {copiedComponent ? (
