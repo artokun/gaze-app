@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { Home } from 'lucide-react'
+import { ArrowLeft, Maximize } from 'lucide-react'
 import Link from 'next/link'
 
 interface FullscreenViewProps {
@@ -20,7 +20,8 @@ export function FullscreenView({
   const [gyroMode, setGyroMode] = useState<'tilt' | 'drag' | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  const spriteSrc = `${basePath}/q0.webp,${basePath}/q1.webp,${basePath}/q2.webp,${basePath}/q3.webp`
+  // basePath already ends with / so don't add another
+  const spriteSrc = `${basePath}q0.webp,${basePath}q1.webp,${basePath}q2.webp,${basePath}q3.webp`
 
   useEffect(() => {
     if (containerRef.current && (gyroMode || !isMobile)) {
@@ -72,26 +73,42 @@ export function FullscreenView({
     setShowGyroDialog(false)
   }
 
-  return (
-    <main className="h-dvh flex flex-col overflow-hidden bg-background">
-      {/* Main content area - image centered */}
-      <div className="flex-1 p-4 pb-0 min-h-0 relative bg-secondary/30 flex items-center justify-center overflow-hidden">
-        <div ref={containerRef} className="h-full max-w-full" />
-      </div>
+  const handleFullscreen = () => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen()
+    } else {
+      document.documentElement.requestFullscreen()
+    }
+  }
 
-      {/* Fixed bottom bar */}
-      <div className="shrink-0 border-t border-border/50 bg-background px-4 py-3">
-        <div className="flex items-center justify-center max-w-2xl mx-auto">
-          <Link href="/">
-            <Button variant="ghost" size="sm">
-              <Home className="w-4 h-4 sm:mr-2" />
-              <span className="hidden sm:inline">Home</span>
+  return (
+    <main className="h-dvh w-full overflow-hidden bg-black relative">
+      {/* Full screen widget */}
+      <div ref={containerRef} className="w-full h-full" />
+
+      {/* Desktop only: Floating controls */}
+      {!isMobile && (
+        <>
+          {/* Back button - top left */}
+          <Link href={`/${sessionId}`} className="absolute top-4 left-4 z-10">
+            <Button variant="ghost" size="icon" className="bg-black/50 hover:bg-black/70 text-white">
+              <ArrowLeft className="w-5 h-5" />
             </Button>
           </Link>
-        </div>
-      </div>
 
-      {/* Gyro mode dialog */}
+          {/* Fullscreen button - top right */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white"
+            onClick={handleFullscreen}
+          >
+            <Maximize className="w-5 h-5" />
+          </Button>
+        </>
+      )}
+
+      {/* Mobile: Gyro mode dialog */}
       {showGyroDialog && (
         <div className="absolute inset-0 bg-black/80 flex items-center justify-center z-20">
           <div className="bg-background rounded-lg p-6 max-w-xs mx-4">
