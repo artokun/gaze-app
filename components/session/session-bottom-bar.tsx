@@ -31,7 +31,7 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
     : `/${sessionId}/view`
 
   const scriptCode = `<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@${CDN_VERSION}/gaze-tracker.js"><\/script>`
-  const componentCode = `<gaze-tracker src="${viewUrl.replace('/view', '')}/gaze_output/"></gaze-tracker>`
+  const componentCode = `<gaze-tracker src="/path/to/sprites/"></gaze-tracker>`
 
   const copyToClipboard = async (text: string, setter: (v: boolean) => void) => {
     await navigator.clipboard.writeText(text)
