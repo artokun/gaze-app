@@ -14,8 +14,15 @@
  *   smoothing - Animation smoothing factor (default: 0.12)
  */
 
-// Remote logger for widget
+// Check if running from file:// protocol (offline/local mode)
+const isOffline = typeof window !== 'undefined' && window.location.protocol === 'file:';
+
+// Remote logger for widget (disabled when offline)
 const widgetLog = (level, msg) => {
+    if (isOffline) {
+        console.log(`[Widget] ${msg}`);
+        return;
+    }
     fetch('/api/log', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -270,14 +277,17 @@ class GazeTracker extends HTMLElement {
             });
             widgetLog('info', 'PIXI app created');
 
-            loading.remove();
-            container.appendChild(this.app.canvas);
-
             // Load sprites - src is root path, default to "/" if not set
             const src = this.getAttribute('src') || '/';
             widgetLog('info', `loading sprites from: ${src}`);
             await this.loadSprite(src);
             widgetLog('info', 'sprites loaded');
+
+            // Only remove loading indicator after successful sprite load
+            if (loading && loading.parentNode) {
+                loading.remove();
+            }
+            container.appendChild(this.app.canvas);
 
             widgetLog('info', 'setting up tracking');
             this.setupMouseTracking();
@@ -292,8 +302,16 @@ class GazeTracker extends HTMLElement {
         } catch (error) {
             widgetLog('error', `init error: ${error.message}`);
             console.error('Gaze Tracker init error:', error);
-            loading.className = 'error';
-            loading.textContent = 'Failed to load: ' + error.message;
+            if (loading && loading.parentNode) {
+                loading.className = 'error';
+                loading.textContent = 'Failed to load: ' + error.message;
+            } else {
+                // Loading element was removed, create error element
+                const errorEl = document.createElement('div');
+                errorEl.className = 'error';
+                errorEl.textContent = 'Failed to load: ' + error.message;
+                container.appendChild(errorEl);
+            }
         }
     }
 
@@ -308,6 +326,17 @@ class GazeTracker extends HTMLElement {
             script.onload = resolve;
             script.onerror = () => reject(new Error('Failed to load PixiJS'));
             document.head.appendChild(script);
+        });
+    }
+
+    // Load image via Image element (works with file:// protocol)
+    loadImageElement(url) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.onload = () => resolve(img);
+            img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
+            img.src = url;
         });
     }
 
@@ -339,10 +368,19 @@ class GazeTracker extends HTMLElement {
 
             widgetLog('info', `Loading quadrants: ${urls[0]}`);
 
-            // Load all quadrant textures, with fallback to desktop if mobile not available
+            // Load textures - use Image elements for file:// protocol, PIXI.Assets for http
             let loaded;
             try {
-                loaded = await PIXI.Assets.load(urls);
+                if (isOffline) {
+                    // Load via Image elements (works with file:// protocol)
+                    const images = await Promise.all(urls.map(url => this.loadImageElement(url)));
+                    loaded = {};
+                    urls.forEach((url, i) => {
+                        loaded[url] = PIXI.Texture.from(images[i]);
+                    });
+                } else {
+                    loaded = await PIXI.Assets.load(urls);
+                }
             } catch (e) {
                 if (this.isMobile && suffix === '_20') {
                     // Mobile sprites not found, fall back to desktop
@@ -360,7 +398,15 @@ class GazeTracker extends HTMLElement {
                         `${basePath}q2.webp`,
                         `${basePath}q3.webp`
                     ];
-                    loaded = await PIXI.Assets.load(urls);
+                    if (isOffline) {
+                        const images = await Promise.all(urls.map(url => this.loadImageElement(url)));
+                        loaded = {};
+                        urls.forEach((url, i) => {
+                            loaded[url] = PIXI.Texture.from(images[i]);
+                        });
+                    } else {
+                        loaded = await PIXI.Assets.load(urls);
+                    }
                 } else {
                     throw e;
                 }
