@@ -11,6 +11,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { ArrowLeft, Download, Copy, Check, ExternalLink } from 'lucide-react'
+import { SiReact, SiVuedotjs, SiJavascript, SiAstro, SiSolid, SiWebflow } from 'react-icons/si'
 import Link from 'next/link'
 
 interface SessionBottomBarProps {
@@ -21,10 +22,10 @@ const CDN_VERSION = 'v1.0.5'
 
 type Framework = 'react' | 'vue' | 'js' | 'astro' | 'solid' | 'webflow'
 
-const frameworkInfo: Record<Framework, { name: string; icon: string; instructions: React.ReactNode }> = {
+const frameworkInfo: Record<Framework, { name: string; icon: React.ReactNode; instructions: React.ReactNode }> = {
   react: {
     name: 'React',
-    icon: '⚛️',
+    icon: <SiReact className="w-4 h-4" />,
     instructions: (
       <>
         Add the script to your <code className="bg-muted px-1 rounded">layout.tsx</code> or use{' '}
@@ -34,7 +35,7 @@ const frameworkInfo: Record<Framework, { name: string; icon: string; instruction
   },
   vue: {
     name: 'Vue',
-    icon: '💚',
+    icon: <SiVuedotjs className="w-4 h-4" />,
     instructions: (
       <>
         Add script to <code className="bg-muted px-1 rounded">nuxt.config.ts</code> head or use{' '}
@@ -44,7 +45,7 @@ const frameworkInfo: Record<Framework, { name: string; icon: string; instruction
   },
   js: {
     name: 'Vanilla JS',
-    icon: '📜',
+    icon: <SiJavascript className="w-4 h-4" />,
     instructions: (
       <>
         Add the script tag to your HTML <code className="bg-muted px-1 rounded">&lt;head&gt;</code>, then use the{' '}
@@ -54,7 +55,7 @@ const frameworkInfo: Record<Framework, { name: string; icon: string; instruction
   },
   astro: {
     name: 'Astro',
-    icon: '🚀',
+    icon: <SiAstro className="w-4 h-4" />,
     instructions: (
       <>
         Add the script to your <code className="bg-muted px-1 rounded">Layout.astro</code> head.
@@ -64,7 +65,7 @@ const frameworkInfo: Record<Framework, { name: string; icon: string; instruction
   },
   solid: {
     name: 'Solid',
-    icon: '💠',
+    icon: <SiSolid className="w-4 h-4" />,
     instructions: (
       <>
         Works like React. Add script to your root <code className="bg-muted px-1 rounded">index.html</code> and use the web component directly in JSX.
@@ -73,7 +74,7 @@ const frameworkInfo: Record<Framework, { name: string; icon: string; instruction
   },
   webflow: {
     name: 'Webflow',
-    icon: '🔷',
+    icon: <SiWebflow className="w-4 h-4" />,
     instructions: (
       <>
         Go to Project Settings → Custom Code → Head Code and paste the script. Then add an Embed element and paste the{' '}
@@ -273,6 +274,11 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
               <p className="text-sm text-muted-foreground">
                 {frameworkInfo[selectedFramework].instructions}
               </p>
+            </div>
+
+            {/* Note */}
+            <div className="border-l-4 border-muted-foreground/30 pl-4 text-sm text-muted-foreground">
+              The web component fills 100% width and height of its container with <code className="bg-muted px-1 rounded">object-fit: contain</code>. Wrap it in a sized container to control dimensions.
             </div>
 
             {/* Options */}
