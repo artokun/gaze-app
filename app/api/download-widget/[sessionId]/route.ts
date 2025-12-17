@@ -129,7 +129,7 @@ Then open **http://localhost:3000** and click on a demo file.
 
 \`\`\`html
 <!-- Add the widget script -->
-<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.6/gaze-tracker.js" defer></script>
+<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.7/gaze-tracker.js" defer></script>
 
 <!-- Use the widget -->
 <gaze-tracker

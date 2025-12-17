@@ -20,7 +20,7 @@ interface SessionBottomBarProps {
   isReady?: boolean
 }
 
-const CDN_VERSION = 'v1.0.6'
+const CDN_VERSION = 'v1.0.7'
 
 type Framework = 'react' | 'vue' | 'js' | 'astro' | 'solid' | 'webflow'
 
