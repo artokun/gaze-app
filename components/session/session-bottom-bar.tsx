@@ -146,17 +146,17 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
             <div>
               <h3 className="text-sm font-medium mb-2">1. Add the script to your HTML head</h3>
               <div className="relative">
-                <pre className="bg-zinc-950 text-zinc-100 p-4 rounded-lg text-xs overflow-x-auto">
+                <pre className="bg-muted p-3 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                   <code>{scriptCode}</code>
                 </pre>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute top-2 right-2 h-7 text-zinc-400 hover:text-zinc-100"
+                  className="absolute top-1 right-1 h-7"
                   onClick={() => copyToClipboard(scriptCode, setCopiedScript)}
                 >
                   {copiedScript ? (
-                    <Check className="w-3.5 h-3.5 text-green-400" />
+                    <Check className="w-3.5 h-3.5 text-green-600" />
                   ) : (
                     <Copy className="w-3.5 h-3.5" />
                   )}
@@ -168,17 +168,17 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
             <div>
               <h3 className="text-sm font-medium mb-2">2. Add the web component where you want it</h3>
               <div className="relative">
-                <pre className="bg-zinc-950 text-zinc-100 p-4 rounded-lg text-xs overflow-x-auto">
+                <pre className="bg-muted p-3 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                   <code>{componentCode}</code>
                 </pre>
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="absolute top-2 right-2 h-7 text-zinc-400 hover:text-zinc-100"
+                  className="absolute top-1 right-1 h-7"
                   onClick={() => copyToClipboard(componentCode, setCopiedComponent)}
                 >
                   {copiedComponent ? (
-                    <Check className="w-3.5 h-3.5 text-green-400" />
+                    <Check className="w-3.5 h-3.5 text-green-600" />
                   ) : (
                     <Copy className="w-3.5 h-3.5" />
                   )}
