@@ -304,6 +304,25 @@
         .download-section {
             margin-top: 15px;
             display: none;
+            gap: 10px;
+        }
+
+        .view-btn {
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: #fff;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .view-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.3);
         }
 
         .download-btn {
@@ -651,6 +670,7 @@
                     <button class="copy-btn" id="copyBtn">Copy Link</button>
                 </div>
                 <div class="download-section" id="downloadSection">
+                    <a class="view-btn" id="viewBtn" target="_blank">View Fullscreen</a>
                     <button class="download-btn" id="downloadBtn">Download Widget</button>
                 </div>
                 <div class="code-snippet" id="codeSnippet">
@@ -1193,7 +1213,9 @@
                 const fullUrl = window.location.origin + '/' + currentSessionId;
                 shareUrl.textContent = fullUrl;
                 shareSection.style.display = 'flex';
-                downloadSection.style.display = 'block';
+                downloadSection.style.display = 'flex';
+                // Set view button href
+                document.getElementById('viewBtn').href = '/view/' + currentSessionId;
             } else {
                 // Demo mode - hide share and download
                 shareSection.style.display = 'none';
