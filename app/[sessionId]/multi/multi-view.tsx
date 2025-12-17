@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft } from 'lucide-react'
+import { Home } from 'lucide-react'
 import Link from 'next/link'
 
 interface MultiViewProps {
@@ -27,29 +27,33 @@ export function MultiView({ sessionId, basePath }: MultiViewProps) {
   }, [basePath])
 
   return (
-    <div className="min-h-screen bg-background p-4">
-      {/* Back button */}
-      <div className="mb-4">
-        <Link href={sessionId === 'demo' ? '/' : `/${sessionId}`}>
-          <Button variant="ghost" size="sm">
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-        </Link>
+    <main className="h-dvh flex flex-col overflow-hidden bg-background">
+      {/* Main content area - 3x2 grid */}
+      <div className="flex-1 p-4 pb-0 min-h-0 relative bg-secondary/30 flex items-center justify-center overflow-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 max-w-6xl w-full h-fit py-4">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              ref={(el) => {
+                containerRefs.current[i] = el
+              }}
+              className="aspect-[4/5] bg-muted rounded-lg overflow-hidden"
+            />
+          ))}
+        </div>
       </div>
 
-      {/* 3x2 Grid */}
-      <div className="grid grid-cols-3 gap-4 max-w-6xl mx-auto">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div
-            key={i}
-            ref={(el) => {
-              containerRefs.current[i] = el
-            }}
-            className="aspect-[4/5] bg-muted rounded-lg overflow-hidden"
-          />
-        ))}
+      {/* Fixed bottom bar */}
+      <div className="shrink-0 border-t border-border/50 bg-background px-4 py-3">
+        <div className="flex items-center justify-center max-w-2xl mx-auto">
+          <Link href="/">
+            <Button variant="ghost" size="sm">
+              <Home className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Home</span>
+            </Button>
+          </Link>
+        </div>
       </div>
-    </div>
+    </main>
   )
 }
