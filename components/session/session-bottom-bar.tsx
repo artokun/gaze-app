@@ -146,19 +146,19 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
             <div>
               <h3 className="text-sm font-medium mb-2">1. Add the script to your HTML head</h3>
               <div className="relative">
-                <pre className="bg-muted p-3 pr-10 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                <pre className="bg-muted p-3 pr-12 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                   <code>{scriptCode}</code>
                 </pre>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 h-7"
+                  size="icon"
+                  className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8"
                   onClick={() => copyToClipboard(scriptCode, setCopiedScript)}
                 >
                   {copiedScript ? (
-                    <Check className="w-3.5 h-3.5 text-green-600" />
+                    <Check className="w-4 h-4 text-green-600" />
                   ) : (
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-4 h-4" />
                   )}
                 </Button>
               </div>
@@ -168,19 +168,19 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
             <div>
               <h3 className="text-sm font-medium mb-2">2. Add the web component where you want it</h3>
               <div className="relative">
-                <pre className="bg-muted p-3 pr-10 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+                <pre className="bg-muted p-3 pr-12 rounded-lg text-xs break-all" style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
                   <code>{componentCode}</code>
                 </pre>
                 <Button
                   variant="ghost"
-                  size="sm"
-                  className="absolute top-2 right-2 h-7"
+                  size="icon"
+                  className="absolute top-1/2 -translate-y-1/2 right-1 h-8 w-8"
                   onClick={() => copyToClipboard(componentCode, setCopiedComponent)}
                 >
                   {copiedComponent ? (
-                    <Check className="w-3.5 h-3.5 text-green-600" />
+                    <Check className="w-4 h-4 text-green-600" />
                   ) : (
-                    <Copy className="w-3.5 h-3.5" />
+                    <Copy className="w-4 h-4" />
                   )}
                 </Button>
               </div>
