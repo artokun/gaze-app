@@ -62,7 +62,7 @@ class GazeTracker extends HTMLElement {
     }
 
     static get observedAttributes() {
-        return ['src', 'smoothing'];
+        return ['src', 'smoothing', 'hide-controls'];
     }
 
     connectedCallback() {
@@ -174,6 +174,10 @@ class GazeTracker extends HTMLElement {
                     z-index: 100;
                     opacity: 0.5;
                     transition: opacity 0.2s;
+                }
+
+                :host([hide-controls]) .controls {
+                    display: none;
                 }
 
                 :host(:hover) .controls,

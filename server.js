@@ -360,6 +360,180 @@ Generated with https://gaze.artokun.io
     }
 });
 
+// Standalone fullscreen view page
+app.get('/view/:sessionId', (req, res, next) => {
+    const sessionId = req.params.sessionId;
+    const sessionDir = path.join(UPLOAD_DIR, sessionId);
+    const outputDir = path.join(sessionDir, 'gaze_output');
+
+    if (!fs.existsSync(outputDir)) {
+        return res.status(404).send('Session not found');
+    }
+
+    // Check for mobile user agent
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(req.get('User-Agent') || '');
+
+    // Generate standalone view HTML
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Gaze Tracker</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            background: #000;
+            touch-action: none;
+        }
+        gaze-tracker {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100dvh;
+        }
+        .back-btn {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            left: max(10px, env(safe-area-inset-left));
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            text-decoration: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+        .back-btn:hover {
+            opacity: 1;
+            border-color: #ff6b6b;
+        }
+        /* Mobile gyro dialog */
+        .gyro-dialog {
+            position: fixed;
+            inset: 0;
+            z-index: 2000;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+            color: #fff;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .gyro-dialog.hidden {
+            display: none;
+        }
+        .gyro-dialog h2 {
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+        }
+        .gyro-dialog p {
+            margin-bottom: 30px;
+            opacity: 0.8;
+            max-width: 300px;
+            line-height: 1.5;
+        }
+        .gyro-dialog .btn-group {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .gyro-dialog button {
+            padding: 15px 30px;
+            border-radius: 10px;
+            border: none;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .gyro-dialog button:active {
+            transform: scale(0.95);
+        }
+        .gyro-dialog .btn-gyro {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+        }
+        .gyro-dialog .btn-touch {
+            background: rgba(255, 255, 255, 0.1);
+            color: #fff;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+    </style>
+</head>
+<body>
+    <a href="/${sessionId}" class="back-btn">&larr; Back</a>
+
+    ${isMobile ? `
+    <div class="gyro-dialog" id="gyroDialog">
+        <h2>&#x1F4F1; Control Method</h2>
+        <p>How would you like to control the gaze?</p>
+        <div class="btn-group">
+            <button class="btn-gyro" id="btnGyro">&#x1F310; Tilt Phone</button>
+            <button class="btn-touch" id="btnTouch">&#x270B; Two-Finger Drag</button>
+        </div>
+    </div>
+    ` : ''}
+
+    <gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker>
+
+    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.js"></script>
+    ${isMobile ? `
+    <script>
+        const dialog = document.getElementById('gyroDialog');
+        const tracker = document.querySelector('gaze-tracker');
+
+        document.getElementById('btnGyro').addEventListener('click', async () => {
+            // Request gyro permission (iOS requires user gesture)
+            if (typeof DeviceOrientationEvent !== 'undefined' &&
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                try {
+                    const permission = await DeviceOrientationEvent.requestPermission();
+                    if (permission !== 'granted') {
+                        alert('Gyroscope permission denied. Using touch controls instead.');
+                        dialog.classList.add('hidden');
+                        return;
+                    }
+                } catch (e) {
+                    alert('Could not access gyroscope. Using touch controls instead.');
+                    dialog.classList.add('hidden');
+                    return;
+                }
+            }
+            // Enable gyro on the tracker
+            if (tracker.enableGyro) {
+                await tracker.enableGyro();
+                tracker.gyroEnabled = true;
+            }
+            dialog.classList.add('hidden');
+        });
+
+        document.getElementById('btnTouch').addEventListener('click', () => {
+            dialog.classList.add('hidden');
+        });
+    </script>
+    ` : ''}
+</body>
+</html>`;
+
+    res.send(html);
+});
+
 // Serve index.html for session routes (SPA routing)
 app.get('/:sessionId', (req, res, next) => {
     // Skip if it looks like a file request
