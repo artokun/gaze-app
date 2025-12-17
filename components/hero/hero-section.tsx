@@ -20,6 +20,7 @@ import {
   Smartphone,
   Menu,
 } from "lucide-react";
+import { PoweredByGpuCli } from "@/components/powered-by/powered-by-gpu-cli";
 
 function SidebarContent({
   fileInputRef,
@@ -115,6 +116,8 @@ function SidebarContent({
             </p>
           </div>
         </div>
+
+        <PoweredByGpuCli />
       </div>
 
       <div className="mt-auto space-y-3">
