@@ -333,7 +333,10 @@ class GazeTracker extends HTMLElement {
     loadImageElement(url) {
         return new Promise((resolve, reject) => {
             const img = new Image();
-            img.crossOrigin = 'anonymous';
+            // Don't set crossOrigin for file:// protocol - it causes CORS errors
+            if (!isOffline) {
+                img.crossOrigin = 'anonymous';
+            }
             img.onload = () => resolve(img);
             img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
             img.src = url;

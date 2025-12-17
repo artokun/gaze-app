@@ -65,7 +65,16 @@
         <p>Desktop: mouse | Mobile: two-finger pan or gyroscope</p>
     </div>
 
-    <script src="gaze-tracker.js"></script>
+    <!-- Try CDN first, fall back to local file for offline use -->
+    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.min.js"></script>
+    <script>
+        if (typeof GazeTracker === 'undefined' && !customElements.get('gaze-tracker')) {
+            // CDN failed, load local fallback
+            const script = document.createElement('script');
+            script.src = 'gaze-tracker.js';
+            document.head.appendChild(script);
+        }
+    </script>
     <script>
         // Hide overlay after first interaction
         ['mousemove', 'touchstart'].forEach(evt => {
