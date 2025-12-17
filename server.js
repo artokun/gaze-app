@@ -403,18 +403,22 @@ app.get('/view/:sessionId', (req, res, next) => {
         .back-btn {
             position: fixed;
             top: max(10px, env(safe-area-inset-top));
-            left: max(10px, env(safe-area-inset-left));
+            right: max(10px, env(safe-area-inset-right));
             z-index: 1000;
             background: rgba(0, 0, 0, 0.6);
             border: 2px solid rgba(255, 255, 255, 0.3);
             color: #fff;
-            padding: 10px 16px;
-            border-radius: 8px;
-            font-size: 1rem;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            font-size: 1.2rem;
             cursor: pointer;
             text-decoration: none;
             opacity: 0.7;
             transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         .back-btn:hover {
             opacity: 1;
@@ -477,7 +481,7 @@ app.get('/view/:sessionId', (req, res, next) => {
     </style>
 </head>
 <body>
-    <a href="/${sessionId}" class="back-btn">&larr; Back</a>
+    <a href="/${sessionId}" class="back-btn">&times;</a>
 
     ${isMobile ? `
     <div class="gyro-dialog" id="gyroDialog">
