@@ -271,11 +271,7 @@ app.get('/api/download-widget/:sessionId', async (req, res) => {
             }
         }
 
-        // Add widget JS
-        const widgetJsPath = path.join(PUBLIC_DIR, 'widget', 'gaze-tracker.js');
-        if (fs.existsSync(widgetJsPath)) {
-            archive.file(widgetJsPath, { name: 'gaze-tracker.js' });
-        }
+        // Widget JS is loaded from CDN, no need to include locally
 
         // Add demo HTML files (self-contained, work when double-clicked)
         const demoFullscreenPath = path.join(PUBLIC_DIR, 'widget', 'demo-fullscreen.html');
@@ -299,20 +295,14 @@ Open one of the included demo files to see your gaze tracker in action:
 
 ## Files Included
 
-- \`gaze-tracker.js\` - The web component (include this in your HTML)
 - \`q0.webp\`, \`q1.webp\`, \`q2.webp\`, \`q3.webp\` - Desktop sprites (30x30 grid)
 - \`q0_20.webp\`, \`q1_20.webp\`, \`q2_20.webp\`, \`q3_20.webp\` - Mobile sprites (20x20 grid)
 - \`demo-fullscreen.html\` - Full page demo (double-click to open)
 - \`demo-resizable.html\` - Resizable container demo (double-click to open)
 
+The widget JavaScript is loaded from CDN automatically.
+
 ## Usage in Your Own HTML
-
-\`\`\`html
-<script src="gaze-tracker.js"></script>
-<gaze-tracker src="./"></gaze-tracker>
-\`\`\`
-
-Or use the CDN version:
 
 \`\`\`html
 <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.js"></script>
