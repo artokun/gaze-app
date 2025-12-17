@@ -26,15 +26,6 @@ export function MultiView({ sessionId, basePath }: MultiViewProps) {
         container.appendChild(tracker)
       }
     })
-
-    // Cleanup on unmount
-    return () => {
-      containers.forEach((container) => {
-        if (container) {
-          container.innerHTML = ''
-        }
-      })
-    }
   }, [basePath])
 
   return (

@@ -18,7 +18,7 @@ interface SessionBottomBarProps {
   sessionId: string
 }
 
-const CDN_VERSION = 'v1.0.5'
+const CDN_VERSION = 'v1.0.6'
 
 type Framework = 'react' | 'vue' | 'js' | 'astro' | 'solid' | 'webflow'
 

@@ -82,7 +82,7 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <script
-          src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.5/gaze-tracker.js"
+          src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.6/gaze-tracker.js"
           defer
         />
       </head>

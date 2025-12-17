@@ -485,7 +485,13 @@ class GazeTracker extends HTMLElement {
 
     // Internal init called by the renderer manager (sequential)
     async _doInit() {
-        const container = this.shadowRoot.querySelector('.gaze-container');
+        const container = this.shadowRoot?.querySelector('.gaze-container');
+
+        // Bail out early if element was removed from DOM during navigation
+        if (!container || !this.isConnected) {
+            widgetLog('info', `init aborted - element disconnected (instance ${this.instanceId})`);
+            return;
+        }
 
         try {
             // Get the shared renderer (creates if needed)
@@ -530,6 +536,13 @@ class GazeTracker extends HTMLElement {
             widgetLog('info', `loading sprites from: ${src}`);
             await this.loadSprite(src);
             widgetLog('info', 'sprites loaded');
+
+            // Check again after async operations - element may have been removed
+            if (!this.isConnected || !container.isConnected) {
+                widgetLog('info', `init aborted after sprite load - element disconnected (instance ${this.instanceId})`);
+                this.app?.destroy(true);
+                return;
+            }
 
             container.appendChild(this.app.canvas);
 

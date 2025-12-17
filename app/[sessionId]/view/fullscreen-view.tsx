@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { ArrowLeft, Maximize } from 'lucide-react'
 import Link from 'next/link'
@@ -18,36 +18,6 @@ export function FullscreenView({
 }: FullscreenViewProps) {
   const [showGyroDialog, setShowGyroDialog] = useState(isMobile)
   const [gyroMode, setGyroMode] = useState<'tilt' | 'drag' | null>(null)
-  const containerRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container || (isMobile && !gyroMode)) return
-
-    // Clear container
-    container.innerHTML = ''
-
-    // Create gaze-tracker element
-    const tracker = document.createElement('gaze-tracker')
-    // Widget expects base path, it appends q0.webp, q1.webp, etc. internally
-    tracker.setAttribute('src', basePath)
-    tracker.setAttribute('hide-controls', '')
-    tracker.style.width = '100%'
-    tracker.style.height = '100%'
-
-    if (gyroMode === 'tilt') {
-      tracker.setAttribute('data-gyro', 'true')
-    }
-
-    container.appendChild(tracker)
-
-    // Cleanup on unmount
-    return () => {
-      if (container) {
-        container.innerHTML = ''
-      }
-    }
-  }, [gyroMode, isMobile, basePath])
 
   const handleGyroSelect = async (mode: 'tilt' | 'drag') => {
     if (mode === 'tilt') {
@@ -87,10 +57,23 @@ export function FullscreenView({
     }
   }
 
+  // Show tracker on desktop always, on mobile only after gyro mode selected
+  const showTracker = !isMobile || gyroMode !== null
+
   return (
     <main className="h-dvh w-full overflow-hidden bg-black relative">
       {/* Full screen widget */}
-      <div ref={containerRef} className="w-full h-full" />
+      {showTracker && (
+        <div className="w-full h-full">
+          {/* @ts-expect-error - gaze-tracker is a custom web component */}
+          <gaze-tracker
+            src={basePath}
+            hide-controls=""
+            data-gyro={gyroMode === 'tilt' ? 'true' : undefined}
+            style={{ width: '100%', height: '100%' }}
+          />
+        </div>
+      )}
 
       {/* Desktop only: Floating controls */}
       {!isMobile && (
