@@ -153,7 +153,7 @@ The widget is distributed via jsDelivr CDN from the `artokun/gaze-widget-dist` r
 
 **CDN URL format:**
 ```
-https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.0/gaze-tracker.js
+https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.1/gaze-tracker.js
 ```
 
 **IMPORTANT: Use versioned tags, not @main**

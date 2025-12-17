@@ -309,7 +309,7 @@ The widget JavaScript is loaded from CDN automatically.
 ## Usage in Your Own HTML
 
 \`\`\`html
-<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.0/gaze-tracker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.1/gaze-tracker.js"></script>
 <gaze-tracker src="/path/to/sprites/"></gaze-tracker>
 \`\`\`
 
@@ -496,7 +496,7 @@ app.get('/view/:sessionId', (req, res, next) => {
 
     <gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker>
 
-    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.0/gaze-tracker.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.1/gaze-tracker.js"></script>
     ${isMobile ? `
     <script>
         const dialog = document.getElementById('gyroDialog');
@@ -622,7 +622,7 @@ app.get('/multi/:sessionId', (req, res, next) => {
         <div class="cell"><gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker></div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.0/gaze-tracker.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.1/gaze-tracker.js"></script>
 </body>
 </html>`;
 

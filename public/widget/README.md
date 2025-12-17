@@ -12,7 +12,7 @@ Just double-click these files to see the widget in action!
 ## Quick Start
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.0/gaze-tracker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.1/gaze-tracker.js"></script>
 <gaze-tracker src="/path/to/sprites/"></gaze-tracker>
 ```
 
@@ -109,7 +109,7 @@ tracker.setAttribute('smoothing', '0.08');
 ## CDN Usage
 
 ```html
-<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.0/gaze-tracker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.1/gaze-tracker.js"></script>
 <gaze-tracker src="https://your-site.com/sprites/"></gaze-tracker>
 ```
 
