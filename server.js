@@ -262,58 +262,96 @@ app.get('/api/download-widget/:sessionId', async (req, res) => {
         const archive = archiver('zip', { zlib: { level: 5 } });
         archive.pipe(res);
 
-        // Add sprite files
+        // Add sprite files to root (so demos work when double-clicked)
         const spriteFiles = ['q0.webp', 'q1.webp', 'q2.webp', 'q3.webp', 'q0_20.webp', 'q1_20.webp', 'q2_20.webp', 'q3_20.webp'];
         for (const file of spriteFiles) {
             const filePath = path.join(outputDir, file);
             if (fs.existsSync(filePath)) {
-                archive.file(filePath, { name: `sprites/${file}` });
+                archive.file(filePath, { name: file });
             }
+        }
+
+        // Add widget JS
+        const widgetJsPath = path.join(PUBLIC_DIR, 'widget', 'gaze-tracker.js');
+        if (fs.existsSync(widgetJsPath)) {
+            archive.file(widgetJsPath, { name: 'gaze-tracker.js' });
+        }
+
+        // Add demo HTML files (self-contained, work when double-clicked)
+        const demoFullscreenPath = path.join(PUBLIC_DIR, 'widget', 'demo-fullscreen.html');
+        const demoResizablePath = path.join(PUBLIC_DIR, 'widget', 'demo-resizable.html');
+        if (fs.existsSync(demoFullscreenPath)) {
+            archive.file(demoFullscreenPath, { name: 'demo-fullscreen.html' });
+        }
+        if (fs.existsSync(demoResizablePath)) {
+            archive.file(demoResizablePath, { name: 'demo-resizable.html' });
         }
 
         // Generate README with usage instructions
         const readme = `# Your Gaze Tracker Widget
 
-## Quick Start
+## Quick Start - Just Double-Click!
 
-Add this to your HTML:
+Open one of the included demo files to see your gaze tracker in action:
+
+- **demo-fullscreen.html** - Full page background (great for kiosk/display)
+- **demo-resizable.html** - Resizable container demo with UI elements
+
+## Files Included
+
+- \`gaze-tracker.js\` - The web component (include this in your HTML)
+- \`q0.webp\`, \`q1.webp\`, \`q2.webp\`, \`q3.webp\` - Desktop sprites (30x30 grid)
+- \`q0_20.webp\`, \`q1_20.webp\`, \`q2_20.webp\`, \`q3_20.webp\` - Mobile sprites (20x20 grid)
+- \`demo-fullscreen.html\` - Full page demo (double-click to open)
+- \`demo-resizable.html\` - Resizable container demo (double-click to open)
+
+## Usage in Your Own HTML
+
+\`\`\`html
+<script src="gaze-tracker.js"></script>
+<gaze-tracker src="./"></gaze-tracker>
+\`\`\`
+
+Or use the CDN version:
 
 \`\`\`html
 <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.js"></script>
 <gaze-tracker src="/path/to/sprites/"></gaze-tracker>
 \`\`\`
 
-## Files Included
-
-- \`sprites/q0.webp\`, \`q1.webp\`, \`q2.webp\`, \`q3.webp\` - Desktop sprites (30x30 grid)
-- \`sprites/q0_20.webp\`, \`q1_20.webp\`, \`q2_20.webp\`, \`q3_20.webp\` - Mobile sprites (20x20 grid)
-
-## Usage Examples
+## Container Examples
 
 ### Full Page Background
 \`\`\`html
-<gaze-tracker src="/sprites/"
+<gaze-tracker src="./"
     style="position: fixed; inset: 0; width: 100%; height: 100%; z-index: -1;">
 </gaze-tracker>
 \`\`\`
 
-### In a Container
+### Fixed Size Container
 \`\`\`html
 <div style="width: 400px; height: 500px;">
-    <gaze-tracker src="/sprites/"></gaze-tracker>
+    <gaze-tracker src="./"></gaze-tracker>
 </div>
 \`\`\`
 
 ### Circle Mask
 \`\`\`html
 <div style="width: 300px; height: 300px; border-radius: 50%; overflow: hidden;">
-    <gaze-tracker src="/sprites/"></gaze-tracker>
+    <gaze-tracker src="./"></gaze-tracker>
 </div>
 \`\`\`
 
+## Controls
+
+- **Desktop**: Move mouse to control gaze
+- **Mobile**: Two-finger pan to control gaze, or enable gyroscope
+- **Fullscreen button** (top-right): Toggle fullscreen mode
+- **Gyroscope button** (top-right, mobile only): Toggle device tilt control
+
 ## Hosting Your Sprites
 
-Upload the \`sprites/\` folder to your web server and update the \`src\` attribute to point to it.
+Upload all files to your web server and update the \`src\` attribute to point to them.
 
 Generated with https://gaze.artokun.io
 `;

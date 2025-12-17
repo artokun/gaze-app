@@ -13,28 +13,20 @@ if [ -d "/app/data" ]; then
     ln -sf /app/data/jobs /app/jobs
 fi
 
-# Set up gpu-cli credentials from environment variables
-if [ -n "$RUNPOD_API_KEY" ]; then
-    echo "RUNPOD_API_KEY found, configuring gpu-cli..."
-
-    # Set keychain file location
-    export GPU_TEST_KEYCHAIN_FILE="/app/data/.gpu-keychain.json"
-
-    # Generate credentials file
+# Set up gpu-cli credentials from env vars
+if [ -n "$GPU_RUNPOD_API_KEY" ]; then
+    echo "Setting up gpu-cli credentials..."
     node /app/scripts/setup-gpu-credentials.js
-
-    # Start gpu daemon
-    echo "Starting gpu daemon..."
-    gpu daemon start || echo "Note: Daemon may need a moment to initialize"
-
-    # Wait for daemon to be ready
-    sleep 2
-
-    echo "gpu-cli configured successfully"
-else
-    echo "Warning: RUNPOD_API_KEY not set. GPU features will not work."
-    echo "Set it with: fly secrets set RUNPOD_API_KEY=rpa_your_key_here"
 fi
+
+# Start gpu daemon
+echo "Starting gpu daemon..."
+gpu daemon start || echo "Note: Daemon may need a moment to initialize"
+sleep 2
+
+# Check authentication status
+echo "Checking gpu-cli auth..."
+gpu auth status || true
 
 # Start the Node.js server
 echo "Starting Node.js server on port ${PORT:-3000}..."

@@ -26,6 +26,7 @@ gpu run uv run python train.py
 | `gpu jobs` | List running/completed jobs |
 | `gpu logs <job-id>` | View job logs |
 | `gpu stop` | Stop active pod |
+| `gpu inventory` | Browse available GPU instances and pricing |
 | `gpu dashboard` | Launch interactive TUI monitor |
 
 ### First-Time Setup
@@ -139,10 +140,23 @@ gpu cancel --all      # Cancel all running jobs
 gpu cancel --force    # Force cancel without confirmation
 ```
 
+### Discovery
+
+#### `gpu inventory`
+Browse available GPU instances before launching. Shows GPU types, pricing, and availability.
+
+```bash
+gpu inventory              # Browse available GPU instances interactively
+```
+
+This helps you discover what GPU types are available and their current pricing before specifying `gpu_type` in config or using `--gpu-type`.
+
 ### Pod Management
 
 #### `gpu start`
 Start a pod manually (advanced users). Usually `gpu run` handles this automatically.
+
+Pod provisioning now shows real-time progress streaming for pod provisioning and agent installation.
 
 ```bash
 gpu start                           # Start with project defaults
@@ -388,12 +402,14 @@ gpu_type = "RTX 4090"
 ### File Sync Rules
 
 **TO pod (upload):**
-- Controlled by `.gitignore`
+- Controlled by `.gitignore` (uses the `ignore` crate which follows gitignore spec)
 - Files in `.gitignore` are NOT synced to pod
-- Useful for excluding large datasets, virtual environments, etc.
+- **Requires a git repo**: The ignore crate needs `git init` to recognize `.gitignore`
+- Useful for excluding large datasets, virtual environments, node_modules, etc.
 - **All project files sync automatically** - no need to use `/workspace` paths
 - Put dependencies in project subdirectories (e.g., `lib/`) and they will sync
 - The sync state is tracked in `.gpu/sync-state.json`
+- **Docker note**: Ensure `.gitignore` is included in container and `git init` is run (see Docker Deployment section)
 
 **Example: Adding a library dependency**
 ```bash
@@ -477,8 +493,14 @@ gpu run -p 8888:8888 jupyter notebook --ip=0.0.0.0 --port=8888
 ```
 
 ### Workflow 7: Multi-GPU Training
+Multi-GPU pods are fully supported for distributed training workloads.
+
 ```bash
+# Request multiple GPUs
 gpu run --gpu-count 4 torchrun --nproc_per_node=4 train.py
+
+# Or configure in gpu.toml
+gpu start --gpu-count 2
 ```
 
 ## GPU Types
@@ -559,7 +581,9 @@ cooldown_minutes = 10
 ```
 
 ### "Address already in use" (Port Conflicts)
-When running long-lived servers (FastAPI, Flask, etc.), old jobs may persist and hold ports:
+When running long-lived servers (FastAPI, Flask, etc.), old jobs may persist and hold ports.
+
+**Note:** The CLI now provides better error messages and troubleshooting guidance for port conflicts.
 
 ```bash
 # Stop all running jobs before starting a new server
@@ -635,11 +659,26 @@ These options work with most commands:
 
 | Variable | Description |
 |----------|-------------|
+| `GPU_RUNPOD_API_KEY` | RunPod API key (v0.2.14+, preferred for CI/CD) |
+| `GPU_SSH_PRIVATE_KEY` | SSH private key (direct, file path, or base64) |
+| `GPU_SSH_PUBLIC_KEY` | SSH public key (direct, file path, or base64) |
+| `GPU_TEST_KEYCHAIN_FILE` | File-backed keychain path (for Docker/CI without system keychain) |
+| `RUNPOD_API_KEY` | RunPod API key (legacy, still supported) |
 | `GPU_PROVIDER` | Override cloud provider (runpod, vast.ai, docker) |
 | `GPU_PROFILE` | Override default profile |
 | `GPU_LOG_LEVEL` | Set log level (trace, debug, info, warn, error) |
 | `RUST_LOG` | Set tracing log level (trace, debug, info, warn, error) |
 | `GPU_RUN_TIMEOUT` | Override command timeout in seconds |
+
+**CI/CD Authentication (v0.2.14+):**
+For CI/CD pipelines and Docker containers, use the environment variable authentication:
+```bash
+export GPU_RUNPOD_API_KEY=rpa_your_key_here
+export GPU_SSH_PRIVATE_KEY="-----BEGIN OPENSSH PRIVATE KEY-----..."  # or base64 encoded
+export GPU_SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3..."
+gpu run python train.py  # Uses env vars for auth
+```
+All three variables must be set for env-based auth. The CLI will show `Source: environment` when connecting.
 
 ## Additional Configuration Options
 
@@ -699,7 +738,7 @@ output_path = "/workspace/outputs/result.json"
 
 ### Output Sync Reliability Warning
 
-**The daemon-managed output sync can be unreliable.** Files may take a long time to sync or never sync at all. For critical applications, implement a fallback mechanism:
+**Note:** Output sync reliability has been improved (fixes for file scanning during setup and output watcher initialization). However, for critical production applications, a fallback mechanism is still recommended:
 
 1. **HTTP fallback**: Add an endpoint to your server that serves generated files directly
 2. **Polling with timeout**: Check for files locally, but have a backup plan
@@ -721,6 +760,124 @@ if (!synced) {
     });
     fs.writeFileSync(localPath, response.data);
 }
+```
+
+## Docker Deployment
+
+When running gpu-cli inside a Docker container, there are several important considerations:
+
+### Authentication in Docker
+
+Docker containers don't have access to system keychains (D-Bus, macOS Keychain). Use environment variables + file-backed keychain:
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    environment:
+      - GPU_RUNPOD_API_KEY=${GPU_RUNPOD_API_KEY}
+      - GPU_SSH_PRIVATE_KEY=${GPU_SSH_PRIVATE_KEY}
+      - GPU_SSH_PUBLIC_KEY=${GPU_SSH_PUBLIC_KEY}
+      - GPU_TEST_KEYCHAIN_FILE=/app/data/.gpu-keychain.json
+    volumes:
+      - app_data:/app/data  # Persist keychain across restarts
+```
+
+```bash
+# .env.docker
+GPU_RUNPOD_API_KEY=rpa_your_key_here
+GPU_SSH_PRIVATE_KEY="base64_encoded_private_key_here"
+GPU_SSH_PUBLIC_KEY="ssh-ed25519 AAAAC3..."
+```
+
+**Important:** The keychain file must be written with the correct format. See `scripts/setup-gpu-credentials.js` for an example that creates the proper structure with `type: "run_pod"` (serde tag format).
+
+### File Sync in Docker (.gitignore)
+
+**Critical finding:** gpu-cli uses `.gitignore` to determine which files to sync to the remote pod. For this to work in Docker:
+
+1. **Include `.gitignore` in container** - Don't exclude it in `.dockerignore`
+2. **Initialize a git repo** - The `ignore` crate requires a git repo for `.gitignore` to be respected
+
+```dockerfile
+# Dockerfile
+COPY . .
+
+# Initialize git repo for .gitignore to be respected by gpu-cli sync
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/* \
+    && git init && git config user.email "docker@local" && git config user.name "Docker"
+```
+
+```dockerfile
+# .dockerignore - DON'T exclude .gitignore
+node_modules
+.git
+.env
+# .gitignore  <-- Remove this line, we NEED .gitignore in the container
+```
+
+**Why this matters:** Without `.gitignore` being respected, gpu-cli will sync everything including `node_modules` (44MB+), making sync extremely slow.
+
+### Security Exclusions
+
+gpu-cli has built-in security exclusions that are ALWAYS enforced (cannot be overridden):
+- `.env`, `.env.*`
+- `*.key`, `*.pem`
+- `.git/`
+- `secrets/`, `.secrets/`
+
+These files will never be synced to remote pods regardless of `.gitignore` settings.
+
+### Example Dockerfile
+
+```dockerfile
+FROM ubuntu:24.04
+WORKDIR /app
+
+# Install Node.js and gpu-cli
+RUN apt-get update && apt-get install -y curl ca-certificates openssh-client gnupg \
+    && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
+    && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+    && apt-get update && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install gpu-cli
+RUN curl -fsSL https://gpu-cli.sh | sh \
+    && ln -s /root/.gpu-cli/bin/gpu /usr/local/bin/gpu
+
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY . .
+
+# Critical: Initialize git for .gitignore support in gpu-cli sync
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/* \
+    && git init && git config user.email "docker@local" && git config user.name "Docker"
+
+RUN chmod +x /app/scripts/*.sh
+CMD ["/app/scripts/start.sh"]
+```
+
+### Startup Script Pattern
+
+```bash
+#!/bin/bash
+# scripts/start.sh
+set -e
+
+# Set up credentials from env vars
+if [ -n "$GPU_RUNPOD_API_KEY" ]; then
+    node /app/scripts/setup-gpu-credentials.js
+fi
+
+# Start daemon
+gpu daemon start
+sleep 2
+
+# Verify auth
+gpu auth status
+
+# Start your application
+exec node server.js
 ```
 
 ## Getting Help

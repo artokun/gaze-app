@@ -110,18 +110,26 @@ gpu shell --command "cd /workspace/LivePortrait && pip install -r requirements.t
 
 **Date:** 2025-12-16
 
+**Status:** ✅ **FIXED** (as of late 2025 release)
+
 **Feature Request:** Would be helpful to have a command to list available GPUs and their current availability/pricing.
 
-Something like:
+**Resolution:** The `gpu inventory` command was added to browse available GPU instances before launching. This allows discovering what GPU types are available with pricing information.
 
 ```bash
-gpu machines inventory    # List all available GPU types
-gpu machines inventory --available  # Show only currently available
-gpu machines inventory --region us-west  # Filter by region
+gpu inventory    # Browse available GPU instances
 ```
 
-Currently there's no way to discover what GPU types are available before specifying `gpu_type` in config.
-It would be nice if there was an interactive region / GPU selector in the CLI on init as well as on demand
+~~Something like:~~
+
+~~```bash~~
+~~gpu machines inventory    # List all available GPU types~~
+~~gpu machines inventory --available  # Show only currently available~~
+~~gpu machines inventory --region us-west  # Filter by region~~
+~~```~~
+
+~~Currently there's no way to discover what GPU types are available before specifying `gpu_type` in config.~~
+~~It would be nice if there was an interactive region / GPU selector in the CLI on init as well as on demand~~
 
 ---
 
@@ -249,6 +257,8 @@ output_dir = f"/workspace/jobs/{session_id}"
 
 **Date:** 2025-12-16
 
+**Status:** ⚠️ **IMPROVED** (as of late 2025 release) - Better error messages and troubleshooting guidance added.
+
 **Problem:** When running a long-lived server (like FastAPI) via `gpu run`, previous jobs may still be running and holding ports, causing "address already in use" errors on restart.
 
 **Symptoms:**
@@ -307,6 +317,8 @@ def find_free_port(start_port=8000):
 
 **Date:** 2025-12-16
 
+**Status:** ✅ **FIXED** (as of late 2025 release) - Interactive mode detection now properly checks both stdin and stdout are TTYs.
+
 **Problem:** Running `gpu stop` from a non-terminal environment (like a Node.js child process) fails with:
 ```
 Failed to get confirmation: IO error: not a terminal
@@ -317,7 +329,7 @@ Failed to get confirmation: IO error: not a terminal
 gpu stop --force
 ```
 
-**Note:** This flag is undocumented in the main help but visible via `gpu stop --help`.
+**Note:** The CLI now has improved detection for non-interactive environments, but `--force` is still recommended for programmatic use.
 
 ---
 
@@ -325,7 +337,13 @@ gpu stop --force
 
 **Date:** 2025-12-16
 
-**Status:** **CRITICAL** - Do not rely on daemon sync. Use HTTP download directly.
+**Status:** ⚠️ **IMPROVED** (as of late 2025 release) - Two fixes applied:
+- "Improve output sync reliability by scanning for existing files during setup"
+- "Fix output watcher missing files created during pod initialization"
+
+**Note:** While improved, HTTP fallback is still recommended for critical production workloads.
+
+**Previous Status:** ~~**CRITICAL** - Do not rely on daemon sync. Use HTTP download directly.~~
 
 **Problem:** The daemon-managed output sync is fundamentally unreliable and should not be used for production workloads. Files often fail to sync back from the pod, even when:
 - Output patterns in gpu.toml are correct
@@ -484,6 +502,8 @@ Or support a `.gpuignore` file that works like `.gitignore` but specifically for
 ## Issue 15: Port Conflicts on Warm Pods
 
 **Date:** 2025-12-16
+
+**Status:** ⚠️ **IMPROVED** (as of late 2025 release) - Better error messages and troubleshooting guidance added. See Issue #10.
 
 **Problem:** When a warm pod has a previous server job still running, starting a new job on the same port fails with "address already in use".
 

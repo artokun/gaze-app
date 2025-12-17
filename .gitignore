@@ -3,6 +3,7 @@ uploads/
 jobs/
 .gpu/
 .env
+.env.docker
 *.log
 *.jpeg
 *.jpg

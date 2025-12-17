@@ -2,6 +2,13 @@
 
 A self-contained web component that displays an animated face that follows the user's cursor. Built with PixiJS for smooth WebGL-powered rendering.
 
+## Demo Files
+
+- **demo-fullscreen.html** - Full page background demo
+- **demo-resizable.html** - Resizable container with flexbox layout
+
+Just double-click these files to see the widget in action!
+
 ## Quick Start
 
 ```html
@@ -10,6 +17,13 @@ A self-contained web component that displays an animated face that follows the u
 ```
 
 That's it! The widget auto-detects everything from your sprite files.
+
+## Controls
+
+- **Desktop**: Move mouse cursor to control gaze direction
+- **Mobile**: Use two-finger pan gesture (single finger scrolls the page)
+- **Gyroscope** (mobile): Tap the phone icon to enable device tilt control
+- **Fullscreen**: Tap the expand icon (works on both desktop and mobile)
 
 ## How It Works
 

@@ -1,0 +1,21 @@
+services:
+  gaze-app:
+    build: .
+    container_name: gaze-app
+    ports:
+      - "3000:3000"
+    environment:
+      - GPU_RUNPOD_API_KEY=${GPU_RUNPOD_API_KEY}
+      - GPU_SSH_PRIVATE_KEY=${GPU_SSH_PRIVATE_KEY}
+      - GPU_SSH_PUBLIC_KEY=${GPU_SSH_PUBLIC_KEY}
+      - GPU_TEST_KEYCHAIN_FILE=/app/data/.gpu-keychain.json
+      - HF_TOKEN=${HF_TOKEN}
+      - NODE_ENV=production
+      - PORT=3000
+      - USER=root
+    volumes:
+      - gaze_data:/app/data  # Persist uploads + jobs
+    restart: unless-stopped
+
+volumes:
+  gaze_data:

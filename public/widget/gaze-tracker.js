@@ -51,6 +51,7 @@ class GazeTracker extends HTMLElement {
         this.textureCache = {};
         this.gyroEnabled = false;
         this.isTouching = false;
+        this.isMobileFullscreen = false;  // CSS-based fullscreen for mobile
     }
 
     static get observedAttributes() {
@@ -213,6 +214,23 @@ class GazeTracker extends HTMLElement {
 
                 :host(:fullscreen) .controls,
                 :host(:-webkit-full-screen) .controls {
+                    opacity: 1;
+                }
+
+                /* CSS-based fullscreen for mobile (Fullscreen API doesn't work reliably) */
+                :host(.mobile-fullscreen) {
+                    position: fixed !important;
+                    inset: 0 !important;
+                    width: 100vw !important;
+                    height: 100vh !important;
+                    z-index: 999999 !important;
+                }
+
+                :host(.mobile-fullscreen) .gaze-container {
+                    background: #000;
+                }
+
+                :host(.mobile-fullscreen) .controls {
                     opacity: 1;
                 }
             </style>
@@ -477,30 +495,40 @@ class GazeTracker extends HTMLElement {
     }
 
     setupTouchTracking() {
+        // Use TWO-finger pan for gaze control on mobile
+        // Single finger is reserved for page scrolling
         this.touchStartHandler = (e) => {
-            this.isTouching = true;
-            if (e.touches.length > 0) {
-                const touch = e.touches[0];
-                const x = touch.clientX / window.innerWidth;
-                const y = touch.clientY / window.innerHeight;
+            // Only activate with 2+ fingers to allow normal scrolling
+            if (e.touches.length >= 2) {
+                this.isTouching = true;
+                // Use center point between first two touches
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                const x = ((t1.clientX + t2.clientX) / 2) / window.innerWidth;
+                const y = ((t1.clientY + t2.clientY) / 2) / window.innerHeight;
                 this.targetCol = x * (this.gridSize - 1);
                 this.targetRow = y * (this.gridSize - 1);
             }
         };
 
         this.touchMoveHandler = (e) => {
-            if (e.touches.length > 0) {
+            // Only respond to 2+ finger gestures
+            if (e.touches.length >= 2) {
                 this.isTouching = true;
-                const touch = e.touches[0];
-                const x = touch.clientX / window.innerWidth;
-                const y = touch.clientY / window.innerHeight;
+                const t1 = e.touches[0];
+                const t2 = e.touches[1];
+                const x = ((t1.clientX + t2.clientX) / 2) / window.innerWidth;
+                const y = ((t1.clientY + t2.clientY) / 2) / window.innerHeight;
                 this.targetCol = x * (this.gridSize - 1);
                 this.targetRow = y * (this.gridSize - 1);
             }
         };
 
-        this.touchEndHandler = () => {
-            this.isTouching = false;
+        this.touchEndHandler = (e) => {
+            // Only release when all fingers lifted
+            if (e.touches.length < 2) {
+                this.isTouching = false;
+            }
         };
 
         document.addEventListener('touchstart', this.touchStartHandler, { passive: true });
@@ -587,35 +615,64 @@ class GazeTracker extends HTMLElement {
         const btn = this.shadowRoot.querySelector('.fullscreen-btn');
         if (!btn) return;
 
-        btn.addEventListener('click', () => {
-            // Check various fullscreen states
-            const isFullscreen = document.fullscreenElement === this ||
-                                 document.webkitFullscreenElement === this;
+        // Update button icon based on fullscreen state
+        const updateIcon = () => {
+            const isNativeFullscreen = document.fullscreenElement === this ||
+                                       document.webkitFullscreenElement === this;
+            const isFullscreen = isNativeFullscreen || this.isMobileFullscreen;
+            btn.innerHTML = isFullscreen ? '&#x2715;' : '&#x26F6;';
+        };
 
-            if (isFullscreen) {
+        btn.addEventListener('click', () => {
+            // Check if we're on mobile (touch device)
+            const isTouchDevice = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+
+            // Check various fullscreen states
+            const isNativeFullscreen = document.fullscreenElement === this ||
+                                       document.webkitFullscreenElement === this;
+
+            if (this.isMobileFullscreen) {
+                // Exit CSS-based mobile fullscreen
+                this.isMobileFullscreen = false;
+                this.classList.remove('mobile-fullscreen');
+                document.body.style.overflow = '';
+                updateIcon();
+            } else if (isNativeFullscreen) {
+                // Exit native fullscreen
                 if (document.exitFullscreen) {
                     document.exitFullscreen();
                 } else if (document.webkitExitFullscreen) {
                     document.webkitExitFullscreen();
                 }
+            } else if (isTouchDevice) {
+                // Mobile: Use CSS-based fullscreen (more reliable than Fullscreen API)
+                this.isMobileFullscreen = true;
+                this.classList.add('mobile-fullscreen');
+                document.body.style.overflow = 'hidden';
+                updateIcon();
+                // Trigger resize to update canvas
+                if (this.resizeObserver) {
+                    setTimeout(() => {
+                        this.resizeObserver.disconnect();
+                        this.resizeObserver.observe(this);
+                    }, 100);
+                }
             } else {
-                // Try standard first, then webkit
+                // Desktop: Try native fullscreen API
                 if (this.requestFullscreen) {
                     this.requestFullscreen().catch(err => {
                         console.error('Fullscreen error:', err);
+                        // Fallback to CSS fullscreen
+                        this.isMobileFullscreen = true;
+                        this.classList.add('mobile-fullscreen');
+                        document.body.style.overflow = 'hidden';
+                        updateIcon();
                     });
                 } else if (this.webkitRequestFullscreen) {
                     this.webkitRequestFullscreen();
                 }
             }
         });
-
-        // Update button icon when fullscreen changes
-        const updateIcon = () => {
-            const isFullscreen = document.fullscreenElement === this ||
-                                 document.webkitFullscreenElement === this;
-            btn.innerHTML = isFullscreen ? '&#x2715;' : '&#x26F6;';
-        };
 
         document.addEventListener('fullscreenchange', updateIcon);
         document.addEventListener('webkitfullscreenchange', updateIcon);
