@@ -496,7 +496,7 @@ app.get('/view/:sessionId', (req, res, next) => {
 
     <gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker>
 
-    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@1c6fadf563f43f9aaadf788f54e0d9ebbe1f4864/gaze-tracker.js"></script>
     ${isMobile ? `
     <script>
         const dialog = document.getElementById('gyroDialog');
