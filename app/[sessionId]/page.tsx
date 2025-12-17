@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { GazeTrackerWrapper } from '@/components/viewer/gaze-tracker-wrapper'
-import { getSessionMetadata, getBasePath } from '@/lib/storage'
+import { getSessionMetadata } from '@/lib/storage'
 import { Maximize2, Download, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
@@ -20,8 +20,11 @@ export default async function SessionPage({ params }: SessionPageProps) {
     notFound()
   }
 
-  const basePath = getBasePath(sessionId)
-  const spriteSrc = `${basePath}/q0.webp,${basePath}/q1.webp,${basePath}/q2.webp,${basePath}/q3.webp`
+  // Use API files route which handles both local and CF Images
+  // Demo has flat structure, sessions have sprites in gaze_output/ subfolder
+  const src = sessionId === 'demo'
+    ? `/api/files/${sessionId}/`
+    : `/api/files/${sessionId}/gaze_output/`
 
   return (
     <main className="min-h-screen bg-background">
@@ -40,7 +43,7 @@ export default async function SessionPage({ params }: SessionPageProps) {
             <CardTitle>Gaze Tracker</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <GazeTrackerWrapper src={spriteSrc} />
+            <GazeTrackerWrapper src={src} />
 
             <div className="flex flex-wrap justify-center gap-2">
               <Link href={`/${sessionId}/view`}>

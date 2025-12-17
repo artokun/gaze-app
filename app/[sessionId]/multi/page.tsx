@@ -1,5 +1,5 @@
 import { notFound } from 'next/navigation'
-import { getSessionMetadata, getBasePath } from '@/lib/storage'
+import { getSessionMetadata } from '@/lib/storage'
 import { MultiView } from './multi-view'
 
 interface MultiPageProps {
@@ -16,7 +16,11 @@ export default async function MultiPage({ params }: MultiPageProps) {
     notFound()
   }
 
-  const basePath = getBasePath(sessionId)
+  // Use API files route which handles both local and CF Images
+  // Demo has flat structure, sessions have sprites in gaze_output/ subfolder
+  const basePath = sessionId === 'demo'
+    ? `/api/files/${sessionId}/`
+    : `/api/files/${sessionId}/gaze_output/`
 
   return <MultiView sessionId={sessionId} basePath={basePath} />
 }

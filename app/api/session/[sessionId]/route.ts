@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getSessionMetadata, getBasePath } from '@/lib/storage'
+import { getSessionMetadata } from '@/lib/storage'
 
 export async function GET(
   _request: NextRequest,
@@ -14,10 +14,13 @@ export async function GET(
       return NextResponse.json({ error: 'Session not found' }, { status: 404 })
     }
 
+    // Use API files route which handles both local and CF Images
+    const basePath = `/api/files/${sessionId}/`
+
     return NextResponse.json({
       sessionId,
-      basePath: getBasePath(sessionId),
-      metadataPath: `${getBasePath(sessionId)}/metadata.json`,
+      basePath,
+      metadataPath: `${basePath}metadata.json`,
       ...metadata,
     })
   } catch (error) {

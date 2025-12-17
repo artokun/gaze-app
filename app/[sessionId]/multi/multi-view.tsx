@@ -13,21 +13,18 @@ interface MultiViewProps {
 export function MultiView({ sessionId, basePath }: MultiViewProps) {
   const containerRefs = useRef<(HTMLDivElement | null)[]>([])
 
-  // Use API files route which properly handles CF Images redirection
-  const src = `/api/files/${sessionId}/`
-
   useEffect(() => {
     containerRefs.current.forEach((container) => {
       if (container) {
         container.innerHTML = ''
         const tracker = document.createElement('gaze-tracker')
-        tracker.setAttribute('src', src)
+        tracker.setAttribute('src', basePath)
         tracker.style.width = '100%'
         tracker.style.height = '100%'
         container.appendChild(tracker)
       }
     })
-  }, [src])
+  }, [basePath])
 
   return (
     <div className="min-h-screen bg-background p-4">

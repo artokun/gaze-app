@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation'
 import { headers } from 'next/headers'
-import { getSessionMetadata, getBasePath } from '@/lib/storage'
+import { getSessionMetadata } from '@/lib/storage'
 import { FullscreenView } from './fullscreen-view'
 
 interface ViewPageProps {
@@ -22,7 +22,11 @@ export default async function ViewPage({ params }: ViewPageProps) {
   const userAgent = headersList.get('user-agent') || ''
   const isMobile = /Android|iPhone|iPad|iPod/i.test(userAgent)
 
-  const basePath = getBasePath(sessionId)
+  // Use API files route which handles both local and CF Images
+  // Demo has flat structure, sessions have sprites in gaze_output/ subfolder
+  const basePath = sessionId === 'demo'
+    ? `/api/files/${sessionId}/`
+    : `/api/files/${sessionId}/gaze_output/`
 
   return (
     <FullscreenView

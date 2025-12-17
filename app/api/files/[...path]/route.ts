@@ -20,28 +20,28 @@ export async function GET(
   const filePath = rest.join('/')
 
   try {
+    // Try local file system first (handles local sessions + development)
+    const fullPath = getSessionPath(sessionId, ...rest)
+
+    if (fs.existsSync(fullPath)) {
+      const fileBuffer = fs.readFileSync(fullPath)
+      const contentType = getContentType(fullPath)
+
+      return new NextResponse(new Uint8Array(fileBuffer), {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=31536000, immutable',
+        },
+      })
+    }
+
+    // Fall back to Cloudflare Images CDN if configured
     if (useCfImages) {
-      // Redirect to Cloudflare Images CDN
       const cdnUrl = getImageUrl(sessionId, filePath)
       return NextResponse.redirect(cdnUrl, 302)
     }
 
-    // Read from local file system
-    const fullPath = getSessionPath(sessionId, ...rest)
-
-    if (!fs.existsSync(fullPath)) {
-      return new NextResponse('Not found', { status: 404 })
-    }
-
-    const fileBuffer = fs.readFileSync(fullPath)
-    const contentType = getContentType(fullPath)
-
-    return new NextResponse(new Uint8Array(fileBuffer), {
-      headers: {
-        'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000, immutable',
-      },
-    })
+    return new NextResponse('Not found', { status: 404 })
   } catch (error) {
     console.error('Failed to serve file:', error)
     return new NextResponse('Not found', { status: 404 })
