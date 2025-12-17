@@ -1,8 +1,7 @@
-import { notFound } from 'next/navigation'
 import { Metadata } from 'next'
-import { GazeTrackerWrapper } from '@/components/viewer/gaze-tracker-wrapper'
+import { SessionViewer } from '@/components/session/session-viewer'
 import { SessionBottomBar } from '@/components/session/session-bottom-bar'
-import { getSessionMetadata } from '@/lib/storage'
+import { getSessionMetadata, sessionExists, getSpriteSrc, useCfImages } from '@/lib/storage'
 
 interface SessionPageProps {
   params: Promise<{ sessionId: string }>
@@ -19,7 +18,7 @@ export async function generateMetadata({ params }: SessionPageProps): Promise<Me
     }
   }
 
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://gaze.art'
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://gaze.artokun.io'
   const ogImageUrl = `${baseUrl}/api/files/${sessionId}/input.jpg`
   const pageUrl = `${baseUrl}/${sessionId}`
 
@@ -77,27 +76,31 @@ export async function generateMetadata({ params }: SessionPageProps): Promise<Me
 export default async function SessionPage({ params }: SessionPageProps) {
   const { sessionId } = await params
 
-  // Validate session exists
+  // Check if session exists (either completed with metadata, or in-progress with input.jpg)
   const metadata = await getSessionMetadata(sessionId)
+  const exists = await sessionExists(sessionId)
 
-  if (!metadata) {
-    notFound()
+  // Allow page to render if session folder exists (even without gaze_output yet)
+  // The client component will handle showing progress vs completed state
+  if (!metadata && !exists) {
+    // Session doesn't exist at all - but allow client to handle
+    // This is needed for immediate navigation after upload
   }
 
-  // Use API files route which handles both local and CF Images
-  // Demo has flat structure, sessions have sprites in gaze_output/ subfolder
-  const src = sessionId === 'demo'
-    ? `/api/files/${sessionId}/`
-    : `/api/files/${sessionId}/gaze_output/`
+  // Session is "ready" if it has complete metadata (gaze_output exists)
+  const isReady = !!metadata
+
+  // Get CDN sprite src if using Cloudflare Images
+  const spriteSrc = isReady && useCfImages ? getSpriteSrc(sessionId) : undefined
 
   return (
     <main className="h-dvh flex flex-col overflow-hidden bg-background">
       {/* Main content area - image centered */}
       <div className="flex-1 p-4 pb-0 min-h-0 relative bg-secondary/30 flex items-center justify-center overflow-hidden">
-        <GazeTrackerWrapper src={src} className="h-full max-w-full" />
+        <SessionViewer sessionId={sessionId} isReady={isReady} spriteSrc={spriteSrc} />
       </div>
 
-      <SessionBottomBar sessionId={sessionId} />
+      <SessionBottomBar sessionId={sessionId} isReady={isReady} />
     </main>
   )
 }

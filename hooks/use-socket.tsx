@@ -21,6 +21,12 @@ import type {
 
 type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>
 
+interface PendingUpload {
+  sessionId: string
+  file: File
+  previewUrl: string
+}
+
 interface SocketContextValue {
   socket: TypedSocket | null
   isConnected: boolean
@@ -31,10 +37,13 @@ interface SocketContextValue {
   logs: GenerationLogEntry[]
   completedSession: SessionComplete | null
   error: string | null
+  pendingUpload: PendingUpload | null
   upload: (
     file: File,
-    removeBackground: boolean
+    removeBackground: boolean,
+    sessionId?: string
   ) => Promise<UploadResponse>
+  startUpload: (file: File) => string // Returns sessionId immediately
   clearState: () => void
 }
 
@@ -64,6 +73,7 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     null
   )
   const [error, setError] = useState<string | null>(null)
+  const [pendingUpload, setPendingUpload] = useState<PendingUpload | null>(null)
 
   // Initialize socket connection
   useEffect(() => {
@@ -117,9 +127,38 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  // Upload file
+  // Generate a session ID
+  const generateSessionId = useCallback(() => {
+    const timestamp = Date.now()
+    const random = Math.random().toString(36).slice(2, 11)
+    return `session_${timestamp}_${random}`
+  }, [])
+
+  // Start upload - returns sessionId immediately for navigation
+  const startUpload = useCallback(
+    (file: File): string => {
+      const sessionId = generateSessionId()
+      const previewUrl = URL.createObjectURL(file)
+
+      // Clear previous state
+      setUploadStatus(null)
+      setQueuePosition(null)
+      setProgress(null)
+      setLogs([])
+      setCompletedSession(null)
+      setError(null)
+
+      // Store pending upload for session page to pick up
+      setPendingUpload({ sessionId, file, previewUrl })
+
+      return sessionId
+    },
+    [generateSessionId]
+  )
+
+  // Actually perform the upload (called from session page)
   const upload = useCallback(
-    (file: File, removeBackground: boolean): Promise<UploadResponse> => {
+    (file: File, removeBackground: boolean, sessionId?: string): Promise<UploadResponse> => {
       return new Promise((resolve) => {
         if (!socket) {
           resolve({
@@ -129,19 +168,15 @@ export function SocketProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        // Clear previous state
-        setUploadStatus(null)
-        setQueuePosition(null)
-        setProgress(null)
-        setLogs([])
-        setCompletedSession(null)
-        setError(null)
+        // Clear pending upload since we're now uploading
+        setPendingUpload(null)
 
         // Read file as ArrayBuffer
         const reader = new FileReader()
         reader.onload = (e) => {
           const fileData = e.target?.result as ArrayBuffer
-          socket.emit('upload', fileData, file.name, removeBackground, (response) => {
+          // Pass sessionId to server so it uses the same one
+          socket.emit('upload', fileData, file.name, removeBackground, sessionId, (response) => {
             resolve(response)
           })
         }
@@ -179,7 +214,9 @@ export function SocketProvider({ children }: { children: ReactNode }) {
         logs,
         completedSession,
         error,
+        pendingUpload,
         upload,
+        startUpload,
         clearState,
       }}
     >

@@ -611,17 +611,23 @@ class GazeTracker extends HTMLElement {
         widgetLog('info', `Loading ${quadrantName}: ${url}`);
 
         let texture;
-        if (isOffline) {
+        // Use image element approach for offline mode OR CDN URLs (which don't have file extensions)
+        const isCdnUrl = url.includes('imagedelivery.net') || !url.match(/\.(webp|png|jpg|jpeg)$/i);
+        if (isOffline || isCdnUrl) {
             const img = await this.loadImageElement(url);
             texture = PIXI.Texture.from(img);
         } else {
             // Load individually to ensure no cache confusion
-            // Add cache-busting for this widget instance
             texture = await PIXI.Assets.load(url);
         }
 
-        // Wait for texture to be fully ready
-        if (!texture.source.resource) {
+        // Verify texture loaded
+        if (!texture) {
+            throw new Error(`Failed to load texture for ${quadrantName}: ${url}`);
+        }
+
+        // Wait for texture to be fully ready (only if source exists and needs loading)
+        if (texture.source && !texture.source.resource) {
             await new Promise(resolve => {
                 if (texture.source.resource) {
                     resolve();
@@ -633,8 +639,8 @@ class GazeTracker extends HTMLElement {
         }
 
         // Verify texture is valid
-        if (!texture || !texture.source || texture.width === 0 || texture.height === 0) {
-            throw new Error(`Invalid texture for ${quadrantName}: ${url}`);
+        if (texture.width === 0 || texture.height === 0) {
+            throw new Error(`Invalid texture dimensions for ${quadrantName}: ${url}`);
         }
 
         widgetLog('info', `${quadrantName} loaded: ${texture.width}x${texture.height}`);
@@ -656,41 +662,58 @@ class GazeTracker extends HTMLElement {
             this.quadrantTextures = {};
             this.textureCache = {};
 
-            // Build quadrant URLs from root path
-            // Desktop: q0.webp, q1.webp, q2.webp, q3.webp (15x15 each = 30x30 grid)
-            // Mobile: q0_20.webp, q1_20.webp, q2_20.webp, q3_20.webp (10x10 each = 20x20 grid)
-            const basePath = rootPath.endsWith('/') ? rootPath : rootPath + '/';
-            let suffix = this.isMobile ? '_20' : '';
-
-            // Load each quadrant INDIVIDUALLY and SEQUENTIALLY to prevent any race conditions
-            // This is slower but guarantees correct texture assignment
+            // Check if rootPath is comma-separated full URLs (CDN mode) or a base path
             const quadrantNames = ['q0', 'q1', 'q2', 'q3'];
             const loadedTextures = {};
 
-            for (const qName of quadrantNames) {
-                const url = `${basePath}${qName}${suffix}.webp`;
-                try {
-                    loadedTextures[qName] = await this.loadSingleTexture(url, qName);
-                } catch (e) {
-                    // If mobile sprites fail, try desktop fallback
-                    if (this.isMobile && suffix === '_20') {
-                        widgetLog('info', `Mobile ${qName} not found, trying desktop fallback`);
-                        suffix = '';
-                        this.gridSize = 30;
-                        this.quadrantSize = 15;
-                        this.currentCol = 15;
-                        this.currentRow = 15;
-                        this.targetCol = 15;
-                        this.targetRow = 15;
+            // Debug: check if comma-separated
+            const hasComma = rootPath.includes(',');
+            widgetLog('info', `rootPath comma check: hasComma=${hasComma}, length=${rootPath.length}`);
 
-                        // Reload all with desktop suffix
-                        for (const q of quadrantNames) {
-                            const desktopUrl = `${basePath}${q}.webp`;
-                            loadedTextures[q] = await this.loadSingleTexture(desktopUrl, q);
+            if (hasComma) {
+                // CDN mode: comma-separated full URLs like "url1,url2,url3,url4"
+                const urls = rootPath.split(',').map(u => u.trim());
+                if (urls.length !== 4) {
+                    throw new Error(`Expected 4 comma-separated URLs, got ${urls.length}`);
+                }
+                widgetLog('info', 'Loading from CDN URLs (comma-separated)');
+                for (let i = 0; i < 4; i++) {
+                    loadedTextures[quadrantNames[i]] = await this.loadSingleTexture(urls[i], quadrantNames[i]);
+                }
+            } else {
+                // Traditional mode: build quadrant URLs from base path
+                // Desktop: q0.webp, q1.webp, q2.webp, q3.webp (15x15 each = 30x30 grid)
+                // Mobile: q0_20.webp, q1_20.webp, q2_20.webp, q3_20.webp (10x10 each = 20x20 grid)
+                const basePath = rootPath.endsWith('/') ? rootPath : rootPath + '/';
+                let suffix = this.isMobile ? '_20' : '';
+
+                // Load each quadrant INDIVIDUALLY and SEQUENTIALLY to prevent any race conditions
+                // This is slower but guarantees correct texture assignment
+                for (const qName of quadrantNames) {
+                    const url = `${basePath}${qName}${suffix}.webp`;
+                    try {
+                        loadedTextures[qName] = await this.loadSingleTexture(url, qName);
+                    } catch (e) {
+                        // If mobile sprites fail, try desktop fallback
+                        if (this.isMobile && suffix === '_20') {
+                            widgetLog('info', `Mobile ${qName} not found, trying desktop fallback`);
+                            suffix = '';
+                            this.gridSize = 30;
+                            this.quadrantSize = 15;
+                            this.currentCol = 15;
+                            this.currentRow = 15;
+                            this.targetCol = 15;
+                            this.targetRow = 15;
+
+                            // Reload all with desktop suffix
+                            for (const q of quadrantNames) {
+                                const desktopUrl = `${basePath}${q}.webp`;
+                                loadedTextures[q] = await this.loadSingleTexture(desktopUrl, q);
+                            }
+                            break;
+                        } else {
+                            throw e;
                         }
-                        break;
-                    } else {
-                        throw e;
                     }
                 }
             }

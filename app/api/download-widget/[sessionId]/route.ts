@@ -3,6 +3,7 @@ import archiver from 'archiver'
 import fs from 'fs'
 import path from 'path'
 import { getSessionPath } from '@/lib/storage/local'
+import { useCfImages, getImageUrl } from '@/lib/storage'
 
 export const runtime = 'nodejs'
 
@@ -12,8 +13,10 @@ export async function GET(
 ) {
   const { sessionId } = await params
   const outputDir = getSessionPath(sessionId, 'gaze_output')
+  const localExists = fs.existsSync(outputDir)
 
-  if (!fs.existsSync(outputDir)) {
+  // Session must exist either locally or on CDN
+  if (!localExists && !useCfImages) {
     return NextResponse.json({ error: 'Session not found' }, { status: 404 })
   }
 
@@ -24,7 +27,7 @@ export async function GET(
     const archive = archiver('zip', { zlib: { level: 5 } })
     archive.on('data', (chunk) => chunks.push(chunk))
 
-    // Add sprite files
+    // Add sprite files - from local storage or CDN
     const spriteFiles = [
       'q0.webp',
       'q1.webp',
@@ -37,9 +40,23 @@ export async function GET(
     ]
 
     for (const file of spriteFiles) {
-      const filePath = path.join(outputDir, file)
-      if (fs.existsSync(filePath)) {
-        archive.file(filePath, { name: file })
+      const localPath = path.join(outputDir, file)
+
+      if (localExists && fs.existsSync(localPath)) {
+        // File exists locally - use it
+        archive.file(localPath, { name: file })
+      } else if (useCfImages) {
+        // Fetch from CDN - images are stored as {sessionId}/q0, not {sessionId}/gaze_output/q0
+        try {
+          const cdnUrl = getImageUrl(sessionId, file)
+          const response = await fetch(cdnUrl)
+          if (response.ok) {
+            const buffer = Buffer.from(await response.arrayBuffer())
+            archive.append(buffer, { name: file })
+          }
+        } catch (err) {
+          console.error(`Failed to fetch ${file} from CDN:`, err)
+        }
       }
     }
 

@@ -9,7 +9,7 @@ jobs/
 *.jpg
 *.png
 .DS_Store
-lib/
+lib/LivePortrait/
 
 # Next.js
 .next/

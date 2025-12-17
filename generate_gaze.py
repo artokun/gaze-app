@@ -214,7 +214,7 @@ class GazeGridGeneratorWeb:
 
         return out_images
 
-    def generate_grid(self, input_image_path, output_dir, sprite_output, grid_size=30, batch_size=8, progress_callback=None):
+    def generate_grid(self, input_image_path, output_dir, sprite_output, grid_size=30, batch_size=8, progress_callback=None, quadrant_ready_callback=None):
         """Generate grid of images and create both 30x30 and 20x20 sprite sheets"""
         os.makedirs(output_dir, exist_ok=True)
         total_images = grid_size * grid_size
@@ -285,6 +285,7 @@ class GazeGridGeneratorWeb:
         first_img = generated_images[0][2]
         img_h, img_w = first_img.shape[:2]
         has_alpha = first_img.shape[2] == 4 if len(first_img.shape) > 2 else False
+        channels = 4 if has_alpha else 3
 
         # Build a lookup for quick access by row/col
         image_grid = {}
@@ -293,102 +294,40 @@ class GazeGridGeneratorWeb:
             row = values.index(y_val)
             image_grid[(row, col)] = img
 
-        # Create sprite sheets using FFmpeg for better performance
-        import tempfile
-        import subprocess
-        import shutil
+        report_progress("saving", 0, 8, "Creating sprite sheets with GPU acceleration...")
 
-        report_progress("saving", 0, 8, "Creating sprite sheets with FFmpeg (30x30 and 20x20)...")
+        # GPU-accelerated sprite sheet creation using PyTorch
+        # Convert all images to a single tensor on GPU for fast operations
+        device = self.live_portrait_wrapper.device
 
-        # Create temp directory for individual frames
-        temp_base = tempfile.mkdtemp(prefix="gaze_frames_")
+        def create_sprite_sheets_gpu(target_grid_size, suffix="", progress_offset=0):
+            """Create 4 quadrant sprite sheets using GPU tensor operations"""
+            half = target_grid_size // 2
 
-        try:
-            # Helper function to create quadrant sprites using FFmpeg
-            def create_quadrant_ffmpeg(target_grid_size, suffix="", progress_offset=0):
-                half = target_grid_size // 2
+            # Map from target grid indices to source (30x30) indices
+            if target_grid_size == grid_size:
+                index_map = list(range(grid_size))
+            else:
+                # Subsample: pick evenly spaced indices
+                index_map = [round(i * (grid_size - 1) / (target_grid_size - 1)) for i in range(target_grid_size)]
 
-                # Map from target grid indices to source (30x30) indices
-                if target_grid_size == grid_size:
-                    index_map = list(range(grid_size))
-                else:
-                    # Subsample: pick evenly spaced indices
-                    index_map = [round(i * (grid_size - 1) / (target_grid_size - 1)) for i in range(target_grid_size)]
+            quadrants = [
+                ('q0', 0, 0),           # top-left
+                ('q1', 0, half),        # top-right
+                ('q2', half, 0),        # bottom-left
+                ('q3', half, half),     # bottom-right
+            ]
 
-                quadrants = [
-                    ('q0', 0, 0),           # top-left
-                    ('q1', 0, half),        # top-right
-                    ('q2', half, 0),        # bottom-left
-                    ('q3', half, half),     # bottom-right
-                ]
+            for q_idx, (q_name, row_start, col_start) in enumerate(quadrants):
+                quadrant_num = q_idx + progress_offset
+                size_label = f"{target_grid_size}x{target_grid_size} desktop" if progress_offset == 0 else f"{target_grid_size}x{target_grid_size} mobile"
+                if progress_callback:
+                    progress_callback("stitching", quadrant_num, 8, f"Creating sprite sheet {quadrant_num + 1}/8 (Q{q_idx} {size_label})...")
 
-                for q_idx, (q_name, row_start, col_start) in enumerate(quadrants):
-                    # Create temp dir for this quadrant's frames
-                    q_temp = os.path.join(temp_base, f"{q_name}{suffix}")
-                    os.makedirs(q_temp, exist_ok=True)
-
-                    # Save frames in row-major order (top-left to bottom-right)
-                    frame_num = 0
-                    for local_row in range(half):
-                        for local_col in range(half):
-                            target_row = row_start + local_row
-                            target_col = col_start + local_col
-
-                            source_row = index_map[target_row]
-                            source_col = index_map[target_col]
-
-                            if (source_row, source_col) in image_grid:
-                                img = image_grid[(source_row, source_col)]
-                                frame_path = os.path.join(q_temp, f"frame_{frame_num:04d}.png")
-
-                                if has_alpha:
-                                    pil_img = Image.fromarray(img, 'RGBA')
-                                else:
-                                    pil_img = Image.fromarray(img, 'RGB')
-                                pil_img.save(frame_path, 'PNG')
-
-                            frame_num += 1
-
-                    # Use FFmpeg to create tiled sprite sheet
-                    output_path = os.path.join(output_dir, f'{q_name}{suffix}.webp')
-                    ffmpeg_cmd = [
-                        'ffmpeg', '-y',
-                        '-framerate', '1',  # Doesn't matter for tile, but required
-                        '-i', os.path.join(q_temp, 'frame_%04d.png'),
-                        '-vf', f'tile={half}x{half}',
-                        '-c:v', 'libwebp',
-                        '-q:v', '85',
-                        '-lossless', '0',
-                        output_path
-                    ]
-
-                    try:
-                        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True)
-                        if result.returncode != 0:
-                            print(f"FFmpeg failed for {q_name}{suffix}, using PIL fallback. Error: {result.stderr}", flush=True)
-                            # Fallback to PIL if FFmpeg fails
-                            create_quadrant_pil(target_grid_size, suffix, q_idx, q_name, row_start, col_start, index_map, half)
-                        else:
-                            print(f"FFmpeg created {q_name}{suffix}.webp successfully", flush=True)
-                    except FileNotFoundError:
-                        print(f"FFmpeg not found, using PIL fallback for {q_name}{suffix}", flush=True)
-                        create_quadrant_pil(target_grid_size, suffix, q_idx, q_name, row_start, col_start, index_map, half)
-
-                    # Progress: 4 for 30x30 + 4 for 20x20 = 8 total
-                    current_progress = q_idx + 1 + progress_offset
-                    print(f"PROGRESS_SAVE:{int(current_progress / 8 * 100)}", flush=True)
-
-            # PIL fallback for when FFmpeg fails
-            def create_quadrant_pil(target_grid_size, suffix, q_idx, q_name, row_start, col_start, index_map, half):
-                sprite_w = img_w * half
-                sprite_h = img_h * half
-
-                if has_alpha:
-                    sprite = np.zeros((sprite_h, sprite_w, 4), dtype=np.uint8)
-                else:
-                    sprite = np.zeros((sprite_h, sprite_w, 3), dtype=np.uint8)
-
+                # Collect images for this quadrant and stack into tensor
+                quadrant_images = []
                 for local_row in range(half):
+                    row_images = []
                     for local_col in range(half):
                         target_row = row_start + local_row
                         target_col = col_start + local_col
@@ -397,28 +336,50 @@ class GazeGridGeneratorWeb:
 
                         if (source_row, source_col) in image_grid:
                             img = image_grid[(source_row, source_col)]
-                            y_pos = local_row * img_h
-                            x_pos = local_col * img_w
-                            sprite[y_pos:y_pos+img_h, x_pos:x_pos+img_w] = img
+                            # Convert to tensor: (H, W, C) -> (C, H, W)
+                            img_tensor = torch.from_numpy(img).to(device)
+                            row_images.append(img_tensor)
+                        else:
+                            # Black placeholder if image missing
+                            row_images.append(torch.zeros(img_h, img_w, channels, dtype=torch.uint8, device=device))
 
-                filename = f'{q_name}{suffix}.webp'
-                sprite_path = os.path.join(output_dir, filename)
+                    # Concatenate row horizontally: (H, W*half, C)
+                    row_tensor = torch.cat(row_images, dim=1)
+                    quadrant_images.append(row_tensor)
+
+                # Concatenate all rows vertically: (H*half, W*half, C)
+                sprite_tensor = torch.cat(quadrant_images, dim=0)
+
+                # Move to CPU and convert to numpy for WebP encoding
+                sprite_np = sprite_tensor.cpu().numpy()
+
+                # Save as WebP using Pillow
+                output_path = os.path.join(output_dir, f'{q_name}{suffix}.webp')
                 if has_alpha:
-                    pil_sprite = Image.fromarray(sprite, 'RGBA')
+                    pil_sprite = Image.fromarray(sprite_np, 'RGBA')
                 else:
-                    pil_sprite = Image.fromarray(sprite, 'RGB')
-                pil_sprite.save(sprite_path, 'WEBP', quality=85)
+                    pil_sprite = Image.fromarray(sprite_np, 'RGB')
+                pil_sprite.save(output_path, 'WEBP', quality=70)
 
-            # Create 30x30 quadrants (q0.webp, q1.webp, q2.webp, q3.webp)
-            create_quadrant_ffmpeg(grid_size, suffix="", progress_offset=0)
+                print(f"GPU created {q_name}{suffix}.webp successfully ({sprite_np.shape[1]}x{sprite_np.shape[0]})", flush=True)
 
-            # Create 20x20 quadrants (q0_20.webp, q1_20.webp, q2_20.webp, q3_20.webp)
-            mobile_grid_size = 20
-            create_quadrant_ffmpeg(mobile_grid_size, suffix="_20", progress_offset=4)
+                # Report completion
+                completed_quadrant = q_idx + progress_offset
+                print(f"PROGRESS_SAVE:{int((completed_quadrant + 1) / 8 * 100)} (quadrant {completed_quadrant + 1}/8 done)", flush=True)
 
-        finally:
-            # Clean up temp directory
-            shutil.rmtree(temp_base, ignore_errors=True)
+                # Notify that this quadrant is ready for upload
+                if quadrant_ready_callback:
+                    quadrant_ready_callback(completed_quadrant, output_path)
+
+        # Create 30x30 quadrants (q0.webp, q1.webp, q2.webp, q3.webp)
+        create_sprite_sheets_gpu(grid_size, suffix="", progress_offset=0)
+
+        # Create 20x20 quadrants (q0_20.webp, q1_20.webp, q2_20.webp, q3_20.webp)
+        mobile_grid_size = 20
+        create_sprite_sheets_gpu(mobile_grid_size, suffix="_20", progress_offset=4)
+
+        # Clear GPU memory
+        torch.cuda.empty_cache() if torch.cuda.is_available() else None
 
         # Save metadata with both grid sizes
         metadata_path = os.path.join(output_dir, 'metadata.json')

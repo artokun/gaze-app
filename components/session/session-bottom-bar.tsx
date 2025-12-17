@@ -13,9 +13,11 @@ import {
 import { ArrowLeft, Download, Copy, Check, ExternalLink } from 'lucide-react'
 import { SiReact, SiVuedotjs, SiJavascript, SiAstro, SiSolid, SiWebflow } from 'react-icons/si'
 import Link from 'next/link'
+import { useSocket } from '@/hooks/use-socket'
 
 interface SessionBottomBarProps {
   sessionId: string
+  isReady?: boolean
 }
 
 const CDN_VERSION = 'v1.0.6'
@@ -84,13 +86,20 @@ const frameworkInfo: Record<Framework, { name: string; icon: React.ReactNode; in
   },
 }
 
-export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
+export function SessionBottomBar({ sessionId, isReady = false }: SessionBottomBarProps) {
+  const { completedSession } = useSocket()
   const [showEmbedModal, setShowEmbedModal] = useState(false)
   const [showMobileAlert, setShowMobileAlert] = useState(false)
   const [copiedScript, setCopiedScript] = useState(false)
   const [copiedComponent, setCopiedComponent] = useState(false)
   const [copiedLink, setCopiedLink] = useState(false)
   const [selectedFramework, setSelectedFramework] = useState<Framework>('react')
+
+  // Determine if this session is complete - buttons only enabled when confirmed ready
+  const isComplete = isReady || (completedSession?.sessionId === sessionId)
+
+  // Disabled by default until session is confirmed complete
+  const isDisabled = !isComplete
 
   const viewUrl = typeof window !== 'undefined'
     ? `${window.location.origin}/${sessionId}/view`
@@ -123,10 +132,10 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
   return (
     <>
       {/* Fixed bottom bar */}
-      <div className="shrink-0 border-t border-border/50 bg-background px-4 py-3">
+      <div className={`shrink-0 border-t border-border/50 bg-background px-4 py-3 ${isDisabled ? 'opacity-50' : ''}`}>
         <div className="flex items-center justify-between max-w-2xl mx-auto gap-2">
-          <Link href="/">
-            <Button variant="ghost" size="sm">
+          <Link href="/" className={isDisabled ? 'pointer-events-none' : ''}>
+            <Button variant="ghost" size="sm" disabled={isDisabled}>
               <ArrowLeft className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Home</span>
             </Button>
@@ -138,6 +147,7 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
               <Input
                 value={viewUrl}
                 readOnly
+                disabled={isDisabled}
                 className="h-8 text-xs truncate"
               />
               <Button
@@ -145,6 +155,7 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
                 size="sm"
                 className="shrink-0 h-8 w-8 p-0"
                 onClick={() => copyToClipboard(viewUrl, setCopiedLink)}
+                disabled={isDisabled}
               >
                 {copiedLink ? (
                   <Check className="w-3.5 h-3.5 text-green-600" />
@@ -157,20 +168,20 @@ export function SessionBottomBar({ sessionId }: SessionBottomBarProps) {
 
           {/* Desktop: Multi and Fullscreen buttons */}
           <div className="hidden sm:flex items-center gap-2">
-            <Link href={`/${sessionId}/multi`}>
-              <Button variant="outline" size="sm">
+            <Link href={`/${sessionId}/multi`} className={isDisabled ? 'pointer-events-none' : ''}>
+              <Button variant="outline" size="sm" disabled={isDisabled}>
                 Multi
               </Button>
             </Link>
-            <Link href={`/${sessionId}/view`}>
-              <Button variant="outline" size="sm">
+            <Link href={`/${sessionId}/view`} className={isDisabled ? 'pointer-events-none' : ''}>
+              <Button variant="outline" size="sm" disabled={isDisabled}>
                 <ExternalLink className="w-4 h-4 mr-2" />
                 Fullscreen
               </Button>
             </Link>
           </div>
 
-          <Button size="sm" onClick={handleDownloadClick}>
+          <Button size="sm" onClick={handleDownloadClick} disabled={isDisabled}>
             <Download className="w-4 h-4 sm:mr-2" />
             <span className="hidden sm:inline">Download</span>
           </Button>

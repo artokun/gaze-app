@@ -29,14 +29,14 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://gaze.art',
+    url: 'https://gaze.artokun.io',
     siteName: 'Gaze Tracker',
     title: 'Gaze Tracker - AI-Powered Interactive Portraits',
     description:
       'Transform your photos into mesmerizing AI-animated portraits that follow your every move. Upload a photo and watch it come alive with realistic gaze tracking.',
     images: [
       {
-        url: 'https://gaze.art/api/files/demo/input.jpg',
+        url: 'https://gaze.artokun.io/api/files/demo/input.jpg',
         width: 512,
         height: 640,
         alt: 'Gaze Tracker demo portrait',
@@ -49,7 +49,7 @@ export const metadata: Metadata = {
     description:
       'Transform your photos into mesmerizing AI-animated portraits that follow your every move. Upload a photo and watch it come alive with realistic gaze tracking.',
     creator: '@artokun',
-    images: ['https://gaze.art/api/files/demo/input.jpg'],
+    images: ['https://gaze.artokun.io/api/files/demo/input.jpg'],
   },
   robots: {
     index: true,
@@ -81,10 +81,8 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <script
-          src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.6/gaze-tracker.js"
-          defer
-        />
+        {/* TODO: Switch back to CDN for production */}
+        <script src="/widget/gaze-tracker.js" defer />
       </head>
       <body className={inter.className}>
         <SocketProvider>

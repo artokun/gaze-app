@@ -64,6 +64,13 @@ export interface QueueItem {
   addedAt: number
 }
 
+// Quadrant status types
+export type QuadrantStatusType = 'pending' | 'stitching' | 'uploading' | 'done' | 'error'
+
+export interface QuadrantStatus {
+  status: QuadrantStatusType
+}
+
 // Progress types
 export interface GenerationProgress {
   stage: string
@@ -71,6 +78,7 @@ export interface GenerationProgress {
   message: string
   current?: number
   total?: number
+  quadrants?: QuadrantStatus[]  // Per-quadrant status for stitching/upload visualization
 }
 
 export type GenerationLogType =
@@ -105,6 +113,7 @@ export interface UploadResponse {
 export interface SessionComplete {
   sessionId: string
   basePath: string
+  spriteSrc?: string // Full sprite src for widget (comma-separated URLs for CDN)
   metadataPath: string
   gridSize: number
   quadrantSize: number
@@ -132,6 +141,7 @@ export interface ClientToServerEvents {
     fileData: ArrayBuffer,
     filename: string,
     removeBackground: boolean,
+    sessionId: string | undefined,
     callback: (response: UploadResponse) => void
   ) => void
 }

@@ -25,7 +25,6 @@ apt = [
     { name = "libsm6" },
     { name = "libxext6" },
     { name = "libxrender1" },
-    { name = "ffmpeg" },
 ]
 
 [environment.python]
@@ -37,20 +36,14 @@ pip_global = [
     { name = "pillow" },
     { name = "onnxruntime-gpu" },
     { name = "onnx" },
-    { name = "imageio" },
     { name = "tyro" },
     { name = "pyyaml" },
     { name = "scipy" },
-    { name = "tqdm" },
     { name = "rembg" },
     { name = "fastapi" },
     { name = "uvicorn" },
-    { name = "python-multipart" },
     { name = "huggingface_hub" },
+    { name = "boto3" },
+    { name = "aiohttp" },
 ]
 
-# Install FFmpeg (apt packages in gpu.toml don't get installed by gpu-cli)
-[environment.shell]
-steps = [
-    { run = "apt-get update && apt-get install -y ffmpeg" }
-]
