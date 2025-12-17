@@ -46,13 +46,15 @@ export async function GET(
         // File exists locally - use it
         archive.file(localPath, { name: file })
       } else if (useCfImages) {
-        // Fetch from CDN - images are stored as {sessionId}/q0, not {sessionId}/gaze_output/q0
+        // Fetch from CDN - sprites are stored at {sessionId}/gaze_output/{file}
         try {
-          const cdnUrl = getImageUrl(sessionId, file)
+          const cdnUrl = getImageUrl(sessionId, `gaze_output/${file}`)
           const response = await fetch(cdnUrl)
           if (response.ok) {
             const buffer = Buffer.from(await response.arrayBuffer())
             archive.append(buffer, { name: file })
+          } else {
+            console.error(`Failed to fetch ${file} from CDN: ${response.status}`)
           }
         } catch (err) {
           console.error(`Failed to fetch ${file} from CDN:`, err)
