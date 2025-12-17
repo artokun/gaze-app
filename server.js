@@ -309,7 +309,7 @@ The widget JavaScript is loaded from CDN automatically.
 ## Usage in Your Own HTML
 
 \`\`\`html
-<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.4/gaze-tracker.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.5/gaze-tracker.js"></script>
 <gaze-tracker src="/path/to/sprites/"></gaze-tracker>
 \`\`\`
 
@@ -496,7 +496,7 @@ app.get('/view/:sessionId', (req, res, next) => {
 
     <gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker>
 
-    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.4/gaze-tracker.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.5/gaze-tracker.js"></script>
     ${isMobile ? `
     <script>
         const dialog = document.getElementById('gyroDialog');
@@ -536,6 +536,269 @@ app.get('/view/:sessionId', (req, res, next) => {
 </html>`;
 
     res.send(html);
+});
+
+// Gallery page - shows all generations (hidden route)
+app.get('/all', (req, res) => {
+    const isAdmin = req.query.admin === 'true';
+
+    // Get all sessions with completed gaze_output
+    let sessions = [];
+    try {
+        const dirs = fs.readdirSync(UPLOAD_DIR);
+        for (const dir of dirs) {
+            const outputDir = path.join(UPLOAD_DIR, dir, 'gaze_output');
+            const inputPath = path.join(UPLOAD_DIR, dir, 'input.jpg');
+            if (fs.existsSync(outputDir) && fs.existsSync(inputPath)) {
+                const stat = fs.statSync(inputPath);
+                sessions.push({
+                    id: dir,
+                    created: stat.mtime.getTime()
+                });
+            }
+        }
+        // Sort by creation time, newest first
+        sessions.sort((a, b) => b.created - a.created);
+    } catch (e) {
+        console.error('Error reading sessions:', e);
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaze Gallery</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: system-ui, -apple-system, sans-serif;
+            color: #fff;
+        }
+        .gallery {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+            padding: 20px;
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+        @media (max-width: 1200px) {
+            .gallery { grid-template-columns: repeat(4, 1fr); }
+        }
+        @media (max-width: 900px) {
+            .gallery { grid-template-columns: repeat(3, 1fr); }
+        }
+        @media (max-width: 600px) {
+            .gallery { grid-template-columns: repeat(2, 1fr); gap: 4px; padding: 8px; }
+        }
+        .card {
+            position: relative;
+            aspect-ratio: 4/5;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            background: #000;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .card:hover {
+            transform: scale(1.03);
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4);
+        }
+        .card img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .card .delete-btn {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 59, 48, 0.9);
+            border: none;
+            color: #fff;
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 0.2s;
+            z-index: 10;
+        }
+        .card:hover .delete-btn {
+            opacity: 1;
+        }
+        .card .delete-btn:hover {
+            background: #ff3b30;
+        }
+
+        /* Modal */
+        .modal {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal.active {
+            display: flex;
+        }
+        .modal-backdrop {
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .modal-content {
+            position: relative;
+            width: 90%;
+            height: 90%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .modal-content gaze-tracker {
+            width: 100%;
+            height: 100%;
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .modal-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            font-size: 1.5rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1001;
+            transition: background 0.2s;
+        }
+        .modal-close:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        .empty {
+            grid-column: 1 / -1;
+            text-align: center;
+            padding: 60px 20px;
+            opacity: 0.6;
+        }
+        .count {
+            text-align: center;
+            padding: 20px;
+            opacity: 0.5;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="gallery">
+        ${sessions.length === 0 ? '<div class="empty">No generations yet</div>' : ''}
+        ${sessions.map(s => `
+            <div class="card" data-session="${s.id}" onclick="openModal('${s.id}')">
+                <img src="/uploads/${s.id}/input.jpg" alt="" loading="lazy">
+                ${isAdmin ? `<button class="delete-btn" onclick="event.stopPropagation(); deleteSession('${s.id}')">&times;</button>` : ''}
+            </div>
+        `).join('')}
+    </div>
+    ${sessions.length > 0 ? `<div class="count">${sessions.length} generations</div>` : ''}
+
+    <div class="modal" id="modal">
+        <div class="modal-backdrop" onclick="closeModal()"></div>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+        <div class="modal-content" id="modalContent"></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.5/gaze-tracker.js"></script>
+    <script>
+        const modal = document.getElementById('modal');
+        const modalContent = document.getElementById('modalContent');
+        let currentTracker = null;
+
+        function openModal(sessionId) {
+            // Create fresh gaze-tracker
+            modalContent.innerHTML = '<gaze-tracker src="/uploads/' + sessionId + '/gaze_output/" hide-controls></gaze-tracker>';
+            currentTracker = modalContent.querySelector('gaze-tracker');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+            document.body.style.overflow = '';
+            // Clean up tracker
+            if (currentTracker) {
+                modalContent.innerHTML = '';
+                currentTracker = null;
+            }
+        }
+
+        // Close on escape
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeModal();
+        });
+
+        ${isAdmin ? `
+        async function deleteSession(sessionId) {
+            if (!confirm('Delete this generation? This cannot be undone.')) return;
+
+            try {
+                const res = await fetch('/api/admin/delete/' + sessionId, { method: 'DELETE' });
+                if (res.ok) {
+                    document.querySelector('[data-session="' + sessionId + '"]').remove();
+                } else {
+                    alert('Failed to delete');
+                }
+            } catch (e) {
+                alert('Error: ' + e.message);
+            }
+        }
+        ` : ''}
+    </script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
+// Admin delete endpoint
+app.delete('/api/admin/delete/:sessionId', (req, res) => {
+    const sessionId = req.params.sessionId;
+    const sessionDir = path.join(UPLOAD_DIR, sessionId);
+
+    // Basic validation - must be a session directory
+    if (!sessionId.startsWith('session_') || !fs.existsSync(sessionDir)) {
+        return res.status(404).json({ error: 'Session not found' });
+    }
+
+    try {
+        fs.rmSync(sessionDir, { recursive: true, force: true });
+        console.log(`Admin deleted session: ${sessionId}`);
+        res.json({ success: true });
+    } catch (e) {
+        console.error(`Failed to delete session ${sessionId}:`, e);
+        res.status(500).json({ error: 'Failed to delete' });
+    }
 });
 
 // Multi-widget grid page
@@ -1120,23 +1383,35 @@ async function generateGazeGrid(socket, sessionId, inputPath, sessionDir, remove
     }
 }
 
-// Graceful shutdown
-process.on('SIGINT', () => {
-    console.log('Shutting down...');
-    if (gpuServerProcess) {
-        console.log('Stopping GPU server...');
-        gpuServerProcess.kill();
-    }
-    process.exit(0);
-});
+// Graceful shutdown - stop GPU pod before exiting
+async function gracefulShutdown(signal) {
+    console.log(`Received ${signal}, shutting down gracefully...`);
 
-process.on('SIGTERM', () => {
-    console.log('Received SIGTERM, shutting down...');
+    // Kill local gpu process if running
     if (gpuServerProcess) {
+        console.log('Killing local GPU process...');
         gpuServerProcess.kill();
+        gpuServerProcess = null;
     }
+
+    // Stop the remote GPU pod (important for cost savings)
+    try {
+        console.log('Stopping remote GPU pod...');
+        execSync(`${GPU_CLI} stop --force --no-sync`, {
+            cwd: __dirname,
+            timeout: 25000, // 25s timeout (fly.toml has 30s kill_timeout)
+            stdio: 'inherit'
+        });
+        console.log('GPU pod stopped successfully');
+    } catch (e) {
+        console.error('Failed to stop GPU pod:', e.message);
+    }
+
     process.exit(0);
-});
+}
+
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 
 // Start the server
 httpServer.listen(PORT, '0.0.0.0', async () => {

@@ -1,0 +1,29 @@
+app = 'gaze-app'
+primary_region = 'sjc'
+
+# Graceful shutdown - give time to stop GPU pod
+kill_signal = 'SIGTERM'
+kill_timeout = 30
+
+[build]
+
+[env]
+  PORT = '3000'
+  GPU_TEST_KEYCHAIN_FILE = '/app/data/.gpu-keychain.json'
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+[[vm]]
+  memory = '1gb'
+  cpu_kind = 'shared'
+  cpus = 1
+
+[mounts]
+  source = 'gaze_data'
+  destination = '/app/data'

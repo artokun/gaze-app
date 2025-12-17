@@ -165,11 +165,10 @@ class GazeGridGeneratorWeb:
                     delta_new[0, 15, 0] += ex * 0.0007
                 delta_new[0, 11, 1] += ey * -0.001
                 delta_new[0, 15, 1] += ey * -0.001
-                blink = -ey / 2.
-                delta_new[0, 11, 1] += blink * -0.001
-                delta_new[0, 13, 1] += blink * 0.0003
-                delta_new[0, 15, 1] += blink * -0.001
-                delta_new[0, 16, 1] += blink * 0.0003
+                # Blink effect disabled for now - only doing eyebrow
+                # blink = -ey / 2.
+                # delta_new[0, 13, 1] += blink * 0.0003
+                # delta_new[0, 16, 1] += blink * 0.0003
 
             eb = params['eyebrow']
             if eb != 0:

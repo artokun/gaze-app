@@ -1,5 +1,8 @@
 FROM ubuntu:24.04
 
+# Set USER env var for gpu-cli (it uses this for project detection)
+ENV USER=gaze-app
+
 WORKDIR /app
 
 # Install system dependencies and Node.js

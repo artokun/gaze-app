@@ -153,7 +153,7 @@ The widget is distributed via jsDelivr CDN from the `artokun/gaze-widget-dist` r
 
 **CDN URL format:**
 ```
-https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.4/gaze-tracker.js
+https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.5/gaze-tracker.js
 ```
 
 **IMPORTANT: Use versioned tags, not @main**
@@ -167,13 +167,13 @@ https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.4/gaze-tracker.js
 # The GitHub Action (.github/workflows/publish-widget.yml) auto-publishes to gaze-widget-dist
 
 # Then create a new versioned release:
-gh release create v1.0.4 --repo artokun/gaze-widget-dist \
-  --title "v1.0.4" \
+gh release create v1.0.5 --repo artokun/gaze-widget-dist \
+  --title "v1.0.5" \
   --notes "Description of changes" \
   --target main
 
 # Verify the new version works:
-curl -s "https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.4/gaze-tracker.js" | head -20
+curl -s "https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.5/gaze-tracker.js" | head -20
 
 # Update all CDN references in the codebase to use the new version
 ```
