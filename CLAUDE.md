@@ -80,6 +80,8 @@ Local (port 3000)              Remote GPU Pod (port 8000)
 - Loads PixiJS dynamically, renders sprite frames
 - Supports quadrant mode (4 sprites) or single sprite mode
 - Input: mouse, touch, and device gyroscope
+- Attributes: `src`, `smoothing`, `hide-controls`
+- Auto-detects mobile (20x20 grid) vs desktop (30x30 grid)
 
 **public/index.html** - Main UI
 - Shows demo by default (from `/demo/` assets)
@@ -135,6 +137,59 @@ fly deploy
 - `fly.toml` - Fly.io config with persistent volume
 - `scripts/setup-gpu-credentials.js` - Generates keychain from env vars
 - `scripts/start.sh` - Startup script
+
+### View Page
+
+`/view/:sessionId` - Standalone fullscreen view page
+- 100dvh height for proper mobile viewport
+- `hide-controls` attribute hides widget controls
+- Mobile gyro dialog: choose tilt or two-finger drag
+- Safe area insets for notched phones
+- Back button (top-left) returns to main session page
+
+### CDN & Widget Distribution
+
+The widget is distributed via jsDelivr CDN from the `artokun/gaze-widget-dist` repo.
+
+**CDN URL format:**
+```
+https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.0/gaze-tracker.js
+```
+
+**IMPORTANT: Use versioned tags, not @main**
+- jsDelivr caches @main branch aggressively and updates are unreliable
+- Tags are immutable and cache correctly
+- Always use `@v1.0.0` (or latest version) in CDN URLs
+
+**Creating a new widget release:**
+```bash
+# After pushing changes to public/widget/gaze-tracker.js
+# The GitHub Action (.github/workflows/publish-widget.yml) auto-publishes to gaze-widget-dist
+
+# Then create a new versioned release:
+gh release create v1.0.1 --repo artokun/gaze-widget-dist \
+  --title "v1.0.1" \
+  --notes "Description of changes" \
+  --target main
+
+# Verify the new version works:
+curl -s "https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.1/gaze-tracker.js" | head -20
+
+# Update all CDN references in the codebase to use the new version
+```
+
+**Files using CDN:**
+- `server.js` - View page and download README
+- `public/index.html` - Code snippets for users
+- `public/widget/demo-*.html` - Demo files
+- `public/widget/README.md` - Documentation
+
+### File Protocol Limitations
+
+The widget does NOT work when opened from `file://` protocol due to browser security:
+- WebGL "tainted canvas" errors prevent rendering
+- CORS restrictions block sprite loading
+- Demo files show instructions to run `npx serve`
 
 ### Known Issues & Workarounds
 
