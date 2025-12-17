@@ -4,8 +4,14 @@
  *
  * Required env vars (matching gpu-cli v0.2.14+):
  *   GPU_RUNPOD_API_KEY - Your RunPod API key (starts with rpa_)
+ *
+ * Optional env vars:
  *   GPU_SSH_PRIVATE_KEY - SSH private key (direct, file path, or base64)
  *   GPU_SSH_PUBLIC_KEY - SSH public key (direct, file path, or base64)
+ *
+ * If SSH keys are not provided, the script will:
+ *   1. Preserve existing keys from the keychain file (if any)
+ *   2. Let gpu-cli generate keys on first pod connection (if no existing keys)
  */
 
 const fs = require('fs');
@@ -50,6 +56,26 @@ function resolveKey(value, name) {
     return null;
 }
 
+/**
+ * Read existing credentials from keychain file
+ */
+function readExistingCredentials() {
+    if (!fs.existsSync(KEYCHAIN_FILE)) {
+        return null;
+    }
+
+    try {
+        const keychainData = JSON.parse(fs.readFileSync(KEYCHAIN_FILE, 'utf8'));
+        if (keychainData[NAMESPACE]?.credentials) {
+            return JSON.parse(keychainData[NAMESPACE].credentials);
+        }
+    } catch (e) {
+        console.error('Warning: Could not read existing keychain file:', e.message);
+    }
+
+    return null;
+}
+
 function main() {
     const apiKey = process.env.GPU_RUNPOD_API_KEY;
     const privateKeyRaw = process.env.GPU_SSH_PRIVATE_KEY;
@@ -65,23 +91,32 @@ function main() {
         process.exit(1);
     }
 
-    if (!privateKeyRaw || !publicKeyRaw) {
-        console.error('Error: GPU_SSH_PRIVATE_KEY and GPU_SSH_PUBLIC_KEY are required');
-        process.exit(1);
-    }
-
     console.log('Setting up gpu-cli credentials...');
 
-    // Resolve SSH keys
-    const privateKey = resolveKey(privateKeyRaw, 'GPU_SSH_PRIVATE_KEY');
-    const publicKey = resolveKey(publicKeyRaw, 'GPU_SSH_PUBLIC_KEY');
+    // Try to get SSH keys from environment first
+    let privateKey = null;
+    let publicKey = null;
 
-    if (!privateKey || !publicKey) {
-        console.error('Error: Could not resolve SSH keys');
-        process.exit(1);
+    if (privateKeyRaw && publicKeyRaw) {
+        privateKey = resolveKey(privateKeyRaw, 'GPU_SSH_PRIVATE_KEY');
+        publicKey = resolveKey(publicKeyRaw, 'GPU_SSH_PUBLIC_KEY');
+
+        if (privateKey && publicKey) {
+            console.log('Using SSH keys from environment');
+        }
     }
 
-    console.log('Using SSH keys from environment');
+    // If no keys from env, try to preserve existing keys from keychain
+    if (!privateKey || !publicKey) {
+        const existingCreds = readExistingCredentials();
+        if (existingCreds?.ssh_private_key && existingCreds?.ssh_public_key) {
+            privateKey = existingCreds.ssh_private_key;
+            publicKey = existingCreds.ssh_public_key;
+            console.log('Preserving existing SSH keys from keychain');
+        } else {
+            console.log('No SSH keys found - gpu-cli will generate on first pod connection');
+        }
+    }
 
     // Create GlobalCredentials structure (matching gpu-cli format)
     // ProviderCredentials uses #[serde(tag = "type", rename_all = "snake_case")]
@@ -117,7 +152,11 @@ function main() {
 
     console.log(`Credentials written to ${KEYCHAIN_FILE}`);
     console.log(`API Key: ${apiKey.substring(0, 8)}...${apiKey.slice(-4)}`);
-    console.log(`SSH Public Key: ${publicKey.substring(0, 50)}...`);
+    if (publicKey) {
+        console.log(`SSH Public Key: ${publicKey.substring(0, 50)}...`);
+    } else {
+        console.log('SSH Keys: Will be generated on first pod connection');
+    }
 }
 
 main();

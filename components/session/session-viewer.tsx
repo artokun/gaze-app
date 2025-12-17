@@ -243,6 +243,41 @@ export function SessionViewer({ sessionId, isReady: initialReady, spriteSrc: ser
     }
   }, [completedSession, sessionId])
 
+  // Fallback: Poll for completion when stuck at "complete" stage
+  // This handles cases where the socket event doesn't arrive (reconnection, etc)
+  const [pollingComplete, setPollingComplete] = useState(false)
+  useEffect(() => {
+    // Only poll if we're at "complete" stage but haven't received completedSession
+    if (progress?.stage === 'complete' && !completedSession && !pollingComplete) {
+      let attempts = 0
+      const maxAttempts = 10
+      const pollInterval = setInterval(async () => {
+        attempts++
+        try {
+          const response = await fetch(`/api/session/${sessionId}`)
+          if (response.ok) {
+            const data = await response.json()
+            if (data.isReady) {
+              // Session is ready! Trigger a page transition
+              console.log('Polling detected session complete, refreshing...')
+              setPollingComplete(true)
+              clearInterval(pollInterval)
+              // Force refresh to get the server-rendered ready state
+              window.location.reload()
+            }
+          }
+        } catch (err) {
+          console.error('Polling error:', err)
+        }
+        if (attempts >= maxAttempts) {
+          clearInterval(pollInterval)
+        }
+      }, 2000) // Poll every 2 seconds
+
+      return () => clearInterval(pollInterval)
+    }
+  }, [progress?.stage, completedSession, sessionId, pollingComplete])
+
   // Also save to history on mount if ready
   useEffect(() => {
     if (initialReady) {

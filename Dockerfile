@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     openssh-client \
     gnupg \
+    git \
     && mkdir -p /etc/apt/keyrings \
     && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_22.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
@@ -25,15 +26,17 @@ RUN curl -fsSL https://gpu-cli.sh | sh \
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --omit=dev
+# Install ALL dependencies (tsx needed for server.ts)
+RUN npm ci
 
 # Copy application code
 COPY . .
 
+# Build Next.js for production
+RUN npm run build
+
 # Initialize git repo for .gitignore to be respected by gpu-cli sync
-RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/* \
-    && git init && git config user.email "docker@local" && git config user.name "Docker"
+RUN git init && git config user.email "docker@local" && git config user.name "Docker"
 
 # Make scripts executable
 RUN chmod +x /app/scripts/*.sh /app/scripts/*.js 2>/dev/null || true

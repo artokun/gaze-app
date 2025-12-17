@@ -4,17 +4,15 @@ services:
     container_name: gaze-app
     ports:
       - "3000:3000"
+    env_file: .env
     environment:
-      - GPU_RUNPOD_API_KEY=${GPU_RUNPOD_API_KEY}
-      - GPU_SSH_PRIVATE_KEY=${GPU_SSH_PRIVATE_KEY}
-      - GPU_SSH_PUBLIC_KEY=${GPU_SSH_PUBLIC_KEY}
+      # Docker-specific overrides
       - GPU_TEST_KEYCHAIN_FILE=/app/data/.gpu-keychain.json
-      - HF_TOKEN=${HF_TOKEN}
       - NODE_ENV=production
       - PORT=3000
       - USER=root
     volumes:
-      - gaze_data:/app/data  # Persist uploads + jobs
+      - gaze_data:/app/data  # Persist uploads + jobs + keychain
     restart: unless-stopped
 
 volumes:

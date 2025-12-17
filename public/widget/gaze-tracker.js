@@ -434,6 +434,13 @@ class GazeTracker extends HTMLElement {
         const spinner = this.shadowRoot.querySelector('.spinner-overlay');
         if (!placeholder) return;
 
+        // Skip placeholder if src is empty or doesn't look like a valid path
+        // This prevents 404 errors during React navigation transitions
+        if (!src || src.length < 10 || (!src.includes('session_') && !src.includes('demo'))) {
+            if (spinner) spinner.style.display = 'flex';
+            return;
+        }
+
         const basePath = src.endsWith('/') ? src : src + '/';
         // Try input.jpg first (in gaze_output), then parent dir
         const possiblePaths = [
@@ -774,6 +781,11 @@ class GazeTracker extends HTMLElement {
                 this.imageWidth = Math.round(this.imageWidth * scale);
                 this.imageHeight = Math.round(this.imageHeight * scale);
                 widgetLog('info', `Capped frame size to ${this.imageWidth}x${this.imageHeight}`);
+            }
+
+            // Check if app still exists after async texture loading
+            if (!this.app || !this.app.renderer) {
+                throw new Error('App destroyed during sprite loading');
             }
 
             // Resize PIXI app to match frame dimensions

@@ -21,6 +21,7 @@ export async function GET(
       sessionId,
       basePath,
       metadataPath: `${basePath}metadata.json`,
+      isReady: true,
       ...metadata,
     })
   } catch (error) {

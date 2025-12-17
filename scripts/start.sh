@@ -28,6 +28,6 @@ sleep 2
 echo "Checking gpu-cli auth..."
 gpu auth status || true
 
-# Start the Node.js server
-echo "Starting Node.js server on port ${PORT:-3000}..."
-exec node server.js
+# Start the Next.js server
+echo "Starting Next.js server on port ${PORT:-3000}..."
+exec npm start

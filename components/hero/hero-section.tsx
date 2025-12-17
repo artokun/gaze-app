@@ -65,7 +65,7 @@ const features = [
     icon: Users,
     title: "Multi-Portrait",
     description: "Up to 16 portraits on one page.",
-    link: { href: "/demo/multi", text: "See demo" },
+    link: { href: "/demo/multi", text: "See demo", external: false },
   },
   {
     icon: Smartphone,

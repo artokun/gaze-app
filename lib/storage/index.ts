@@ -128,7 +128,7 @@ export async function getSessionMetadata(
 export async function listSessions(): Promise<
   { sessionId: string; lastModified: Date }[]
 > {
-  const localSessions = local.listSessionsLocal()
+  const localSessions = await local.listSessionsLocal()
 
   if (useR2) {
     // Merge R2 sessions (may have sessions not on this server)

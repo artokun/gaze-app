@@ -301,7 +301,7 @@ export async function generateGazeGrid(
     message: string,
     current?: number,
     total?: number,
-    quadrants?: Array<{ status: string }>
+    quadrants?: import('@/types').QuadrantStatus[]
   ) => {
     if (socketId && emitToSocketCallback) {
       emitToSocketCallback(socketId, 'progress', {
