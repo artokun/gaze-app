@@ -21,6 +21,7 @@ export function MultiView({ sessionId, basePath }: MultiViewProps) {
         container.innerHTML = ''
         const tracker = document.createElement('gaze-tracker')
         tracker.setAttribute('src', basePath)
+        tracker.setAttribute('hide-controls', '')
         tracker.style.width = '100%'
         tracker.style.height = '100%'
         container.appendChild(tracker)
