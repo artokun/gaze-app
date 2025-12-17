@@ -466,17 +466,19 @@ class GazeTracker extends HTMLElement {
             this.app.renderer.resize(this.imageWidth, this.imageHeight);
             widgetLog('info', `Frame size: ${this.imageWidth}x${this.imageHeight}, grid: ${this.gridSize}x${this.gridSize}`);
 
-            // Create sprite and add to stage
-            this.sprite = new PIXI.Sprite();
+            // Create sprite with initial texture BEFORE adding to stage
+            // This prevents PIXI from rendering a default/empty texture
+            const centerFrame = Math.floor(this.gridSize / 2);
+            const initialTexture = this.getTextureForCell(centerFrame, centerFrame);
+
+            this.sprite = new PIXI.Sprite(initialTexture);
             this.sprite.anchor.set(0, 0);
-            this.app.stage.addChild(this.sprite);
 
             // Scale sprite to fill canvas
             this.updateSpriteScale();
 
-            // Start at center frame
-            const centerFrame = Math.floor(this.gridSize / 2);
-            this.updateFrame(centerFrame, centerFrame);
+            // Now add to stage with proper texture already set
+            this.app.stage.addChild(this.sprite);
 
             // Start animation loop
             this.app.ticker.add(this.animate.bind(this));

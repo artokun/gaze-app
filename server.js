@@ -538,6 +538,97 @@ app.get('/view/:sessionId', (req, res, next) => {
     res.send(html);
 });
 
+// Multi-widget grid page
+app.get('/multi/:sessionId', (req, res, next) => {
+    const sessionId = req.params.sessionId;
+    const sessionDir = path.join(UPLOAD_DIR, sessionId);
+    const outputDir = path.join(sessionDir, 'gaze_output');
+
+    if (!fs.existsSync(outputDir)) {
+        return res.status(404).send('Session not found');
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Gaze Tracker - Multi View</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        html, body {
+            width: 100%;
+            height: 100dvh;
+            overflow: hidden;
+            background: #000;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            width: 100%;
+            height: 100dvh;
+            gap: 2px;
+            background: #222;
+        }
+        .cell {
+            background: #000;
+            overflow: hidden;
+            position: relative;
+        }
+        .cell gaze-tracker {
+            width: 100%;
+            height: 100%;
+        }
+        .back-btn {
+            position: fixed;
+            top: max(10px, env(safe-area-inset-top));
+            left: max(10px, env(safe-area-inset-left));
+            z-index: 1000;
+            background: rgba(0, 0, 0, 0.6);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+            cursor: pointer;
+            text-decoration: none;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .back-btn:hover {
+            opacity: 1;
+            border-color: #ff6b6b;
+        }
+    </style>
+</head>
+<body>
+    <a href="/${sessionId}" class="back-btn">&larr;</a>
+
+    <div class="grid">
+        <div class="cell"><gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker></div>
+        <div class="cell"><gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker></div>
+        <div class="cell"><gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker></div>
+        <div class="cell"><gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker></div>
+        <div class="cell"><gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker></div>
+        <div class="cell"><gaze-tracker src="/uploads/${sessionId}/gaze_output/" hide-controls></gaze-tracker></div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.0/gaze-tracker.js"></script>
+</body>
+</html>`;
+
+    res.send(html);
+});
+
 // Serve index.html for session routes (SPA routing)
 app.get('/:sessionId', (req, res, next) => {
     // Skip if it looks like a file request
