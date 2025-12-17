@@ -10,3 +10,6 @@ jobs/
 *.png
 .DS_Store
 lib/
+
+# Next.js
+.next/
