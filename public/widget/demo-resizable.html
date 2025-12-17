@@ -266,7 +266,7 @@
     </div>
 
     <!-- Try CDN first, fall back to local file for offline use -->
-    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@main/gaze-tracker.js"></script>
     <script>
         if (typeof GazeTracker === 'undefined' && !customElements.get('gaze-tracker')) {
             // CDN failed, load local fallback
