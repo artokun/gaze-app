@@ -403,7 +403,7 @@ app.get('/view/:sessionId', (req, res, next) => {
         .back-btn {
             position: fixed;
             top: max(10px, env(safe-area-inset-top));
-            right: max(10px, env(safe-area-inset-right));
+            left: max(10px, env(safe-area-inset-left));
             z-index: 1000;
             background: rgba(0, 0, 0, 0.6);
             border: 2px solid rgba(255, 255, 255, 0.3);
@@ -481,7 +481,7 @@ app.get('/view/:sessionId', (req, res, next) => {
     </style>
 </head>
 <body>
-    <a href="/${sessionId}" class="back-btn">&times;</a>
+    <a href="/${sessionId}" class="back-btn">&larr;</a>
 
     ${isMobile ? `
     <div class="gyro-dialog" id="gyroDialog">
