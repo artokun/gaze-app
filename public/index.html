@@ -677,7 +677,7 @@
                 <div class="code-snippet" id="codeSnippet">
                     <p class="snippet-label">1. Unzip the downloaded file into your public directory (e.g. <code>public/gaze/</code>)</p>
                     <p class="snippet-label">2. Add this to your HTML:</p>
-                    <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.1/gaze-tracker.js"&gt;&lt;/script&gt;
+                    <pre><code>&lt;script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.4/gaze-tracker.js"&gt;&lt;/script&gt;
 &lt;gaze-tracker src="/gaze/"&gt;&lt;/gaze-tracker&gt;</code></pre>
                     <button class="copy-btn" id="copyCodeBtn">Copy Code</button>
                 </div>
@@ -927,7 +927,7 @@
 
         // Copy code snippet
         copyCodeBtn.addEventListener('click', () => {
-            const code = `<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.1/gaze-tracker.js"><\/script>
+            const code = `<script src="https://cdn.jsdelivr.net/gh/artokun/gaze-widget-dist@v1.0.4/gaze-tracker.js"><\/script>
 <gaze-tracker src="/gaze/"></gaze-tracker>`;
             navigator.clipboard.writeText(code).then(() => {
                 copyCodeBtn.textContent = 'Copied!';
